@@ -5,7 +5,6 @@ import vm from 'node:vm';
 import Hls from 'hls.js';
 import { Player } from '../src/player/Player.js';
 import { NetSpeed } from '../src/ui/NetSpeed.js';
-import { setLang } from '../src/core/i18n.js';
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 const ranges = (items) => ({ length: items.length, start: (i) => items[i][0], end: (i) => items[i][1] });
@@ -347,24 +346,18 @@ test('实际帧回调与playing、播放推进分别记录', (t) => {
   assert.equal(player.startupStatus().motion, null);
 });
 
-test('网速角标在尚未playing时显示起播诊断，支持中英文和清空', (t) => {
+test('网速角标在尚未playing时显示英文起播诊断，重置后清空', (t) => {
   clock(t);
   const { player } = fixture(t);
   player._watchStartup();
   const el = { innerHTML: '' };
   const badge = new NetSpeed(el, player);
-  setLang('zh');
-  t.after(() => setLang('zh'));
-  badge._render();
-  assert.match(el.innerHTML, /有帧0\.0s/);
-  assert.match(el.innerHTML, /开播—/);
-  assert.match(el.innerHTML, /推进—/);
-  assert.match(el.innerHTML, /连续缓冲 6\.0s/);
-  assert.doesNotMatch(el.innerHTML, /undefined|NaN|\{seconds\}/);
-  setLang('en');
   badge._render();
   assert.match(el.innerHTML, /Data 0\.0s/);
+  assert.match(el.innerHTML, /Seek —/);
+  assert.match(el.innerHTML, /Moving —/);
   assert.match(el.innerHTML, /Buffered, not advancing/);
+  assert.doesNotMatch(el.innerHTML, /undefined|NaN|\{seconds\}/);
   player.stop();
   badge.reset();
   assert.doesNotMatch(el.innerHTML, /Buffered|Moving|Data/);
@@ -604,16 +597,10 @@ test('原生诊断标明路径和回退原因，未报告缓冲不伪装成0秒'
   player._watchStartup();
   const el = { innerHTML: '' };
   const badge = new NetSpeed(el, player);
-  setLang('zh');
-  t.after(() => setLang('zh'));
-  badge._render();
-  assert.match(el.innerHTML, /原生 ← hls.js \(编码错误\)/);
-  assert.match(el.innerHTML, /原生未报告缓冲/);
-  assert.doesNotMatch(el.innerHTML, /连续缓冲 0|undefined|NaN/);
-  setLang('en');
   badge._render();
   assert.match(el.innerHTML, /Native ← hls.js \(codec error\)/);
   assert.match(el.innerHTML, /Native buffer not reported/);
+  assert.doesNotMatch(el.innerHTML, /Buffer 0|undefined|NaN/);
 });
 
 test('回退后迟到的HLS清单、档位和编码回调不得再启动或污染原生播放', (t) => {

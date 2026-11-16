@@ -7,15 +7,15 @@ An open-source M3U / IPTV player for LG webOS TVs (webOS 5.3+, tested on webOS 6
 **No channels, playlists, programmes or EPG data are included.** You add your own M3U playlist and XMLTV/DIYP EPG sources. Only use content you are legally entitled to access. The app does not bypass accounts, authentication or DRM.
 
 ## Download this fork
-[com.qoder.iptv_1.1.64_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.64/com.qoder.iptv_1.1.64_all.ipk) — built from this fork, not from upstream.  
-SHA256: `2ef1d27ee68def941008b7a10ec22aa68c0d79d0efcec818634f0f25dc5fba65`
+[com.qoder.iptv_1.1.65_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.65/com.qoder.iptv_1.1.65_all.ipk) — built from this fork, not from upstream.  
+SHA256: `a031e9b27f7b34e873e619df9dfd6273d75e134842af5b03b1d0bc814a9cadd9`
 
 Install with LG webOS dev mode / Glasshouse. No playlists, channels or EPG data are included.
 
 ## Changes in this fork
 See [CHANGELOG.md](CHANGELOG.md) for the full fork history.
 - Rebranded as **Qoder IPTV** with a new textless purple/blue TV-play icon and English app description.
-- Favourites are always visible as the first group in the channel menu. Add/remove with **Yellow** while watching or in the channel list, **INFO/MENU** on remotes that have them, or by tapping the ☆/★ next to a channel.
+- Favourites are always visible as the first group in the channel menu. Add/remove with **Yellow** while watching or in the channel list, **INFO** on remotes that have it, or by tapping the ☆/★ next to a channel.
 - Channel keys are aligned: **CH+ / D-pad UP** = next channel, **CH- / D-pad DOWN** = previous channel.
 - Source liveness check waits longer before marking a source dead: **3 s per request / 6 s total** (was 1.2 s / 2.5 s), so slow IPTV gateways are not falsely marked dead. Source-test results now expire after 12 hours.
 - Added a runtime stall watchdog, optional M3U/EPG auto-refresh with offline cache fallback, channel search and recently watched channels, EPG details/reminders, audio/subtitle track selection, parental PIN, sleep timer and JSON backup/restore.
@@ -42,7 +42,8 @@ Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
 - Audio-track and subtitle-track selection
 - Parental PIN with optional startup lock, sleep timer, and JSON settings backup/restore
 - Aspect ratio, native / hls.js decoder switch, remembers the last channel
-- Interface language follows the system (Chinese or English) and can be switched in Settings
+- Per-channel customization: rename, hide, EPG offset, clear (MENU key in the channel menu)
+- Interface is fixed to English; no locale-based Chinese UI
 
 ## Remote keys
 | Key | While playing |
@@ -60,7 +61,7 @@ Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
 | FF / REW | ±30 s in catch-up |
 | Stop / Back | Return to live from catch-up |
 
-In the channel menu, **Blue** opens channel search and **Yellow/INFO/MENU** toggles the favourite. In the full-screen EPG guide, **Yellow/INFO** adds or removes a reminder for the selected programme.
+In the channel menu, **Blue** opens channel search, **Yellow/INFO** toggles the favourite, and **MENU** opens per-channel customization (rename / hide / EPG offset). In the full-screen EPG guide, **Yellow/INFO** adds or removes a reminder for the selected programme.
 
 ## Build
 Requires Node.js 20+ (Node 22 recommended; see `.nvmrc`).

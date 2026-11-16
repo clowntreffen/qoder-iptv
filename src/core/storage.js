@@ -1,4 +1,6 @@
 // localStorage 持久化封装：源列表、收藏、设置、上次频道、EPG 缓存
+import { normalizeOverrides } from './channelCustomization.js';
+
 const NS = 'iptv:';
 
 function read(key, fallback) {
@@ -83,8 +85,8 @@ const DEFAULT_SETTINGS = {
   autoPlayLast: true,
   showNetSpeed: false, // 右下角显示当前频道的加载网速
   fontScale: 1,
-  language: 'auto', // auto | zh | en
-  languageVersion: 2,
+  language: 'en', // UI fixed to English; value kept only for saved-settings compatibility
+  languageVersion: 3,
   autoRefresh: true,
   sleepMinutes: 0,
   parentalPin: '',
@@ -93,12 +95,13 @@ const DEFAULT_SETTINGS = {
 export function getSettings() {
   const raw = read('settings', {});
   const s = { ...DEFAULT_SETTINGS, ...raw };
-  // 旧版每次保存设置都会连同默认值 language:'zh' 一起写入，无法区分是否手动选择；
-  // 迁移一次为跟随系统，之后保存会带上新版本号，用户再手动选中文也不会被改回。
+  // v3：UI 语言固定英文。旧存档（含手动选过的 zh）一律迁移到 en，避免电视 locale 把界面切成中文；
+  // 之后每次读取也强制 en，防止外部写入把语言改回中文。
   if (raw.languageVersion !== DEFAULT_SETTINGS.languageVersion) {
-    if (s.language === 'zh') s.language = 'auto';
+    s.language = 'en';
     s.languageVersion = DEFAULT_SETTINGS.languageVersion;
   }
+  s.language = 'en';
   return s;
 }
 export function saveSettings(s) {
@@ -238,6 +241,14 @@ export function setLockedGroups(list) {
 }
 export function isGroupLocked(name) {
   return !!name && getLockedGroups().includes(name);
+}
+
+// ---- 频道级自定义（改名 / 单频道隐藏 / EPG 分钟偏移）----
+export function getChannelOverrides() {
+  return normalizeOverrides(read('channelOverrides', null));
+}
+export function setChannelOverrides(map) {
+  write('channelOverrides', normalizeOverrides(map));
 }
 
 // ---- M3U 离线缓存 ----

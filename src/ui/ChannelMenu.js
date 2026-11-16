@@ -48,6 +48,7 @@ export class ChannelMenu {
     this.onPlayCatchup = null;
     this.onOpenSettings = null;
     this.onOpenSearch = null;
+    this.onEditChannel = null; // (ch) => void：MENU 打开频道自定义编辑器
     this.onClose = null;
     this.onToast = null;
     // 分组被家长锁锁定：(名称, (解锁成功?) => void) => void；默认全部解锁
@@ -423,8 +424,10 @@ export class ChannelMenu {
     const fav = `<span class="fav${favOn ? ' on' : ''}" data-role="fav" data-idx="${i}" title="${esc(t('cm.favToggle'))}">${favOn ? '★' : '☆'}</span>`;
     const multi = ch.sources && ch.sources.length > 1
       ? `<span class="src-badge">${t('cm.srcBadge', { n: ch.sources.length })}</span>` : '';
+    const hiddenMark = ch.customHidden ? `<span class="hidden-badge">${esc(t('ce.hiddenOn'))}</span>` : '';
     const cls =
       'cm-channel-item' +
+      (ch.customHidden ? ' hidden-entry' : '') +
       (ch.key === this.currentKey ? ' playing' : '') +
       (this.col === COL_CHAN && i === this.chanIdx ? ' focused' : '');
     // 提示每行都渲染、由 CSS 控制显隐（焦点行常显 / 鼠标 hover 行也显），
@@ -434,7 +437,7 @@ export class ChannelMenu {
             <div class="num">${esc(String(ch.chno || ch.index))}</div>
             <div class="logo">${logoHtml(ch)}</div>
             <div class="meta">
-              <div class="name">${fav} ${esc(ch.name)} ${multi}</div>
+              <div class="name">${fav} ${esc(ch.name)} ${multi}${hiddenMark}</div>
               <div class="now">${esc(nowTitle)}</div>
             </div>
             <div class="cm-chan-hint" data-role="expand" data-idx="${i}">${t('cm.channelHint')}</div>
@@ -564,8 +567,10 @@ export class ChannelMenu {
       case KEY.OK:
         this._confirm();
         break;
-      case KEY.INFO:
       case KEY.MENU:
+        this._editChannel();
+        break;
+      case KEY.INFO:
       case KEY.YELLOW:
         this._toggleFav();
         break;
@@ -632,7 +637,15 @@ export class ChannelMenu {
     this.render();
   }
 
-  // INFO/MENU 收藏当前焦点频道。没有彩色键的遥控器也能用。
+  // MENU：编辑当前焦点频道（改名/隐藏/EPG 偏移）。编辑期间菜单让位，关闭后保持打开。
+  _editChannel() {
+    if (this.col !== COL_CHAN) return;
+    const ch = this._curChannel();
+    if (!ch || !this.onEditChannel) return;
+    this.onEditChannel(ch);
+  }
+
+  // INFO/YELLOW 收藏当前焦点频道。没有彩色键的遥控器也能用。
   _toggleFav() {
     const ch = this._curChannel();
     if (!ch) return;

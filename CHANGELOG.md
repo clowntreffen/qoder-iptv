@@ -2,6 +2,10 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.65
+- Added per-channel customization: press `MENU` on a channel to rename it, hide it, shift its EPG by up to ±120 minutes, or clear the customization. Renames/hides/offsets survive source refreshes; hidden channels are skipped by zapping, search and the guide but stay listed (marked) in the channel menu so they can be restored.
+- The UI is now fixed to English: the Chinese dictionary, language setting and locale-based switching were removed, and existing settings migrate to English.
+
 ## 1.1.64
 - Added parental group locks: choose groups under Settings → Parental locks. Entering a locked group asks for the parental PIN (kept until the app restarts), and locked groups are skipped by CH+/CH-, number entry, search and the guide while staying listed with a lock badge.
 

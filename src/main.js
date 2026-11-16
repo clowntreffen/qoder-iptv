@@ -24,15 +24,17 @@ import {
   setResumePosition,
   removeResumePosition,
   getLockedGroups,
-  setLockedGroups
+  setLockedGroups,
+  getChannelOverrides
 } from './core/storage.js';
+import { applyChannelOverrides, getOverride } from './core/channelCustomization.js';
 import { activeDeadUrls } from './core/deadUrls.js';
 import { StallWatchdog } from './core/stallWatchdog.js';
 import { takeDueReminders } from './core/reminders.js';
 import { backupText, restoreBackup } from './core/backup.js';
 import { hashPin, migratePin, verifyPin as verifyPinHash } from './core/pin.js';
 import { esc } from './core/util.js';
-import { t, setLang, getLang, groupLabel } from './core/i18n.js';
+import { t, getLang, groupLabel } from './core/i18n.js';
 import { Player } from './player/Player.js';
 import { Osd } from './player/osd.js';
 import { StatusBar } from './ui/StatusBar.js';
@@ -49,12 +51,14 @@ import { NetSpeed } from './ui/NetSpeed.js';
 import { Search } from './ui/Search.js';
 import { PinEntry } from './ui/PinEntry.js';
 import { BackupDialog } from './ui/BackupDialog.js';
+import { ChannelEditor } from './ui/ChannelEditor.js';
 
 const $ = (id) => document.getElementById(id);
 
 const app = {
   channels: [], // 扁平频道列表（按 index 排序，已应用分组隐藏过滤）
   allChannels: [], // 隐藏过滤前的全量频道，改分组可见性时即时重新过滤，无需重拉源
+  channelsAll: [], // 仅按分组过滤（含单频道自定义隐藏），供频道菜单列出并编辑
   allGroups: [], // [{ name, count }] 隐藏前的全部分组，供分组管理面板列出
   current: null, // 当前频道
   source: null, // 当前源
@@ -87,6 +91,7 @@ const netSpeed = new NetSpeed($('net-speed'), player);
 const search = new Search($('search'));
 const pinEntry = new PinEntry($('pin-entry'));
 const backupDialog = new BackupDialog($('backup-dialog'));
+const channelEditor = new ChannelEditor($('channel-editor'));
 
 // ---- 通用 UI ----
 function toast(msg, ms = 2600) {
@@ -249,6 +254,7 @@ function handleRuntimeStall() {
 function anyOverlayOpen() {
   return (
     channelMenu.isOpen() ||
+    channelEditor.isOpen() ||
     epgGuide.isOpen() ||
     settings.isOpen() ||
     sourceManager.isOpen() ||
@@ -557,6 +563,18 @@ function filterVisibleGroups(channels, hiddenGroups) {
   return visible;
 }
 
+// 分组可见性 + 单频道自定义隐藏合并成两份列表：
+// channelsAll = 只按分组过滤（菜单用，隐藏台仍列出并标记，保证能再编辑回来）；
+// channels = 再排除 customHidden（换台/搜索/EPG 指南用）。
+function rebuildChannelLists() {
+  const src = app.source;
+  const groupVisible = filterVisibleGroups(app.allChannels, src ? src.hiddenGroups : []);
+  app.channelsAll = groupVisible;
+  app.channels = groupVisible.filter((ch) => !ch.customHidden);
+  // 删掉隐藏台后会缺号，重新连编；同一批 ch 对象，channelsAll 里的号码同步更新。
+  renumberChannels(app.channels);
+}
+
 // 分组管理面板关闭时回调：写回并持久化 hiddenGroups，用全量即时重新过滤，免重拉源。
 function applyGroupVisibility(hiddenArr) {
   const src = app.source;
@@ -569,8 +587,8 @@ function applyGroupVisibility(hiddenArr) {
     item.hiddenGroups = hiddenArr;
     saveSources(list);
   }
-  const visible = filterVisibleGroups(app.allChannels, hiddenArr);
-  app.channels = visible;
+  rebuildChannelLists();
+  const visible = app.channels;
   statusBar.setSource(src.name, visible.length);
   statusBar.show(5000);
   // 当前台仍在可见列表里就不打断播放；被隐藏了才切到第一个可见台
@@ -586,9 +604,9 @@ function isGroupUnlocked(name) {
   return app.unlockedGroups.has(name);
 }
 
-// 菜单/搜索/指南用的列表：隐藏分组与锁定分组都排除（隐藏已在 app.channels 层过滤）
+// 频道菜单用列表：按分组可见性过滤，但保留单频道隐藏的台（标记出来，保证还能编辑回来）；锁定分组排除。
 function visibleChannelsForMenu() {
-  return app.channels.filter((c) => isGroupUnlocked(c.group));
+  return (app.channelsAll || app.channels).filter((c) => isGroupUnlocked(c.group));
 }
 
 function applyGroupLocks(names) {
@@ -636,12 +654,14 @@ async function loadSource(src, options = {}) {
       return;
     }
     applySourceCatchup(src, channels);
-    // 记录隐藏过滤前的全量：供分组管理面板列出，也用于改可见性时即时重过滤（免重拉源）
+    // 自定义改名/隐藏/偏移按 ch.key 重放到新解析出的对象上（跨刷新稳定）
+    applyChannelOverrides(channels, getChannelOverrides());
+    // 记录隐藏过滤前的全量：供分组管理面板列出，也用于改可见性时即时重新过滤（免重拉源）
     app.allChannels = channels;
     app.allGroups = groupChannels(channels).map((g) => ({ name: g.name, count: g.channels.length }));
-    // 按源保存的隐藏分组设置，过滤出可见频道
-    const visible = filterVisibleGroups(channels, src.hiddenGroups);
-    app.channels = visible;
+    // 按源保存的隐藏分组 + 单频道自定义隐藏，生成菜单/换台两份列表
+    rebuildChannelLists();
+    const visible = app.channels;
     statusBar.setSource(src.name, visible.length);
 
     if (silent) {
@@ -737,34 +757,9 @@ function applySettings(s) {
   applyLanguage();
 }
 
-// 语言变了：切换词库并重渲染当前可见的浮层/状态栏，无需重启应用
+// 固定英文界面：仅同步 html lang；设置迁移保证旧存档不会切回中文。
 function applyLanguage() {
-  const changed = setLang(app.settings.language);
-  document.documentElement.lang = getLang() === 'en' ? 'en' : 'zh-CN';
-  if (changed) relocalize();
-}
-
-// 语言切换后重新渲染已打开的界面（只重画可见的，其他下次打开自然是新语言）
-function relocalize() {
-  if (channelMenu.isOpen()) channelMenu.render();
-  if (epgGuide.isOpen()) epgGuide.render();
-  if (settings.isOpen()) settings.render();
-  if (sourceManager.isOpen()) sourceManager.render();
-  if (groupManager.isOpen()) groupManager.render();
-  if (playerTuning.isOpen()) playerTuning.render();
-  if (deviceInfo.isOpen()) deviceInfo.render();
-  if (exitDialogOpen) renderExitDialog();
-  if (search.isOpen()) search.render();
-  if (backupDialog.isOpen()) backupDialog.render();
-  if (pinEntry.isOpen()) pinEntry.render();
-  if (resumePrompt.isOpen()) resumePrompt.render();
-  if (statusBar.isVisible()) statusBar.show(5000);
-  if (osd.isVisible() && app.current) {
-    osd.show(app.current, {
-      catchup: player.isCatchup(),
-      programme: player.current && player.current.programme
-    });
-  }
+  document.documentElement.lang = getLang();
 }
 
 // webOS 图形画布使用 FHD；视频解码分辨率独立于 UI 画布。
@@ -947,7 +942,7 @@ setInterval(checkReminders, 30000);
 channelMenu.onPlayLive = (ch, opts) => playLive(ch, 0, opts && opts.zapMode);
 channelMenu.onPlayCatchup = playCatchup;
 channelMenu.onOpenSettings = () => settings.open();
-channelMenu.onOpenSearch = (key) => search.open(visibleChannelsForMenu(), key);
+channelMenu.onOpenSearch = (key) => search.open(app.channels, key);
 channelMenu.onToast = toast;
 channelMenu.isGroupUnlocked = (name) => isGroupUnlocked(name);
 // 锁定的分组：先验家长 PIN，成功才放行进组
@@ -972,6 +967,29 @@ channelMenu.onRequestUnlock = (name, cb) => {
 };
 channelMenu.onProbeCatchup = probeChannelCatchup;
 channelMenu.catchupNote = catchupNote;
+// MENU 键：打开频道自定义编辑器（改名/隐藏/EPG 偏移）
+channelMenu.onEditChannel = (ch) => {
+  if (!ch) return;
+  channelEditor.open(ch);
+};
+
+function refreshCustomization() {
+  applyChannelOverrides(app.allChannels, getChannelOverrides());
+  rebuildChannelLists();
+  if (app.current && osd.isVisible()) {
+    osd.show(app.current, { catchup: player.isCatchup(), programme: player.current && player.current.programme });
+  }
+}
+
+channelEditor.onChanged = () => {
+  const key = channelEditor.ch && channelEditor.ch.key;
+  refreshCustomization();
+  const hasOverride = key && getOverride(getChannelOverrides(), key);
+  toast(hasOverride ? t('toast.channelUpdated') : t('toast.channelReset'));
+  // 菜单还开着就刷新它，让改名/隐藏标记立刻可见
+  if (channelMenu.isOpen()) channelMenu.render();
+};
+channelEditor.onClose = () => {};
 
 epgGuide.onPlayLive = playLive;
 epgGuide.onPlayCatchup = playCatchup;
@@ -1140,6 +1158,7 @@ function onKey(code, event) {
   if (sourceManager.isOpen()) return sourceManager.handleKey(code, event);
   if (settings.isOpen()) return settings.handleKey(code);
   if (epgGuide.isOpen()) return epgGuide.handleKey(code);
+  if (channelEditor.isOpen()) return channelEditor.handleKey(code);
   if (channelMenu.isOpen()) return channelMenu.handleKey(code);
   if (resumePrompt.isOpen()) return resumePrompt.handleKey(code);
 
@@ -1218,13 +1237,13 @@ function openChannelMenu() {
     sourceManager.open();
     return;
   }
-  channelMenu.open(app.channels, app.current && app.current.key);
+  channelMenu.open(visibleChannelsForMenu(), app.current && app.current.key);
 }
 
 function openEpgGuide() {
   if (!app.channels.length) return;
   if (!epgStore.loaded) toast(t('toast.noEpgData'));
-  epgGuide.open(visibleChannelsForMenu(), app.current && app.current.key);
+  epgGuide.open(app.channels, app.current && app.current.key);
 }
 
 function toggleFav() {

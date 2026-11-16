@@ -302,7 +302,8 @@ class EpgStore {
     const key = this._key(channel);
     if (!key) return [];
     const list = this.programmes.get(key) || [];
-    const shiftMs = (((channel && parseInt(channel.tvgShift, 10)) || 0)) * 3600000;
+    const shiftMs = ((channel && parseInt(channel.tvgShift, 10)) || 0) * 3600000
+      + ((channel && parseInt(channel.epgOffsetMinutes, 10)) || 0) * 60000;
     if (!shiftMs || !list.length) return list;
     const ck = shiftMs + '|' + key;
     const hit = this._shifted.get(ck);

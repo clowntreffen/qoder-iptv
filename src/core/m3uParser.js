@@ -96,10 +96,10 @@ export function parseM3U(text, baseUrl = '') {
       const shift = parseInt(attrs['tvg-shift'], 10);
       pending = {
         tvgId: attrs['tvg-id'] || '',
-        title: title || tvgName || '未命名',
+        title: title || tvgName || 'Unnamed',
         tvgName,
         logo: resolveReference(attrs['tvg-logo'], baseUrl),
-        group: attrs['group-title'] || '未分组',
+        group: attrs['group-title'] || 'Ungrouped',
         catchup: catchupType || (catchupDays > 0 ? 'default' : ''),
         catchupSource: attrs['catchup-source'] || hdr.catchupSource || '',
         catchupDays,

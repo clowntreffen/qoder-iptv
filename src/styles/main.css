@@ -338,6 +338,15 @@ img + .logo-txt { display: none; }
 .cm-channel-item .fav { color: #ffb300; font-size: 30px; cursor: pointer; padding: 0 6px 0 0; opacity: 0.55; }
 .cm-channel-item .fav.on, .cm-channel-item.focused .fav, .cm-channel-item:hover .fav { opacity: 1; }
 .cm-channel-item .src-badge { display: inline-block; font-size: 20px; color: var(--ui-accent); border: 1px solid var(--ui-accent); border-radius: 6px; padding: 0 8px; margin-left: 6px; vertical-align: middle; }
+/* 单频道隐藏后台菜单仍列出（可再编辑回来），半透明 + 标记区分 */
+.cm-channel-item.hidden-entry { opacity: 0.48; }
+.cm-channel-item.focused.hidden-entry, .cm-channel-item.hidden-entry:hover { opacity: 1; }
+.cm-channel-item .hidden-badge { display: inline-block; font-size: 19px; color: #ffb3b3; border: 1px solid rgba(255,120,120,0.7); border-radius: 6px; padding: 0 8px; margin-left: 6px; vertical-align: middle; }
+
+/* 频道自定义编辑器 */
+#channel-editor .panel { width: 1100px; }
+#channel-editor .ce-input-row { padding: 0 24px 20px; }
+#channel-editor .ce-input-row input { width: 100%; box-sizing: border-box; font-size: 30px; }
 .cm-channel-item.focused { background: var(--ui-focus-fill); box-shadow: inset 0 0 0 2px #c8cbff; }
 .cm-channel-item.focused .num, .cm-channel-item.focused .now { color: #eaf4ff; }
 /* 「节目单/回看 ›」入口：遥控焦点行常显；鼠标 hover 任意行也显示，点它展开日期+节目单栏

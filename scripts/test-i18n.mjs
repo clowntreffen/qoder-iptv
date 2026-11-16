@@ -20,76 +20,70 @@ function withLocale(locale, webOSLocale) {
 const { resolveLang, setLang, getLang, getLangPref, t, groupLabel } = await import('../src/core/i18n.js');
 const { getSettings, saveSettings } = await import('../src/core/storage.js');
 
-test('跟随系统：中文地区显示中文，其他语言显示英文', () => {
-  for (const loc of ['zh-CN', 'zh_CN', 'zh-TW', 'zh-Hans-CN', 'zh']) {
+test('UI 语言固定英文，绝不跟随系统或 webOS locale', () => {
+  for (const loc of ['zh-CN', 'zh_CN', 'zh-TW', 'zh-Hans-CN', 'zh', 'en-US', 'de-DE', '']) {
     withLocale(loc);
-    assert.equal(resolveLang('auto'), 'zh', loc);
+    assert.equal(resolveLang(), 'en', loc);
+    assert.equal(getLang(), 'en', loc);
+    assert.equal(getLangPref(), 'en', loc);
   }
-  for (const loc of ['en-US', 'ko-KR', 'ja-JP', 'de-DE', 'zu-ZA', '']) {
-    withLocale(loc);
-    assert.equal(resolveLang('auto'), 'en', loc);
-  }
-});
-
-test('webOS 系统 locale 优先于浏览器语言', () => {
-  withLocale('zh-CN', 'en-US');
-  assert.equal(resolveLang('auto'), 'en');
   withLocale('en-US', 'zh-CN');
-  assert.equal(resolveLang('auto'), 'zh');
+  assert.equal(resolveLang(), 'en');
+  withLocale('zh-CN', 'en-US');
+  assert.equal(resolveLang(), 'en');
 });
 
-test('手动选择不受系统语言影响，未知值按跟随系统处理', () => {
-  withLocale('en-US');
-  assert.equal(resolveLang('zh'), 'zh');
-  withLocale('zh-CN');
-  assert.equal(resolveLang('en'), 'en');
-  assert.equal(resolveLang(undefined), 'zh');
-  assert.equal(resolveLang('fr'), 'zh');
-});
-
-test('setLang 只在实际显示语言变化时返回 true', (t2) => {
-  t2.after(() => setLang('zh'));
-  withLocale('en-US');
-  setLang('en');
-  assert.equal(setLang('auto'), false);
-  assert.equal(getLangPref(), 'auto');
-  assert.equal(setLang('zh'), true);
-  assert.equal(getLang(), 'zh');
-  assert.equal(t('settings.deviceInfo'), '设备信息');
-  assert.equal(groupLabel('未分组'), '未分组');
-  setLang('en');
+test('setLang 已停用：永远返回 false 且不改变界面语言', () => {
+  assert.equal(setLang('zh'), false);
+  assert.equal(setLang('en'), false);
+  assert.equal(setLang(undefined), false);
+  assert.equal(getLang(), 'en');
   assert.equal(t('settings.deviceInfo'), 'Device Info');
-  assert.equal(groupLabel('未分组'), 'Ungrouped');
-  assert.equal(groupLabel('央视'), '央视');
 });
 
-test('旧版写入的默认中文迁移为跟随系统，迁移后手动中文保留', () => {
-  store.clear();
-  assert.equal(getSettings().language, 'auto');
+test('t 返回英文文案；缺键回退 key 本身', () => {
+  assert.equal(t('settings.title'), 'Settings');
+  assert.equal(t('toast.faved', { name: 'X' }), 'Favorited: X');
+  assert.equal(t('no.such.key'), 'no.such.key');
+});
 
-  store.set('iptv:settings', JSON.stringify({ aspect: '4:3', language: 'zh' }));
+test('groupLabel 把新旧未分组键都显示成英文', () => {
+  assert.equal(groupLabel('Ungrouped'), 'Ungrouped');
+  assert.equal(groupLabel('未分组'), 'Ungrouped');
+  assert.equal(groupLabel('News'), 'News');
+});
+
+test('设置默认英文；旧版中文/自动选择迁移到 en，且读档强制 en', () => {
+  store.clear();
+  const def = getSettings();
+  assert.equal(def.language, 'en');
+  assert.equal(def.languageVersion, 3);
+
+  store.set('iptv:settings', JSON.stringify({ aspect: '4:3', language: 'zh', languageVersion: 2 }));
   const migrated = getSettings();
-  assert.equal(migrated.language, 'auto');
+  assert.equal(migrated.language, 'en');
   assert.equal(migrated.aspect, '4:3');
 
-  store.set('iptv:settings', JSON.stringify({ language: 'en' }));
+  store.set('iptv:settings', JSON.stringify({ language: 'auto' }));
   assert.equal(getSettings().language, 'en');
 
   store.clear();
   saveSettings({ language: 'zh' });
-  assert.equal(getSettings().language, 'zh');
+  assert.equal(getSettings().language, 'en');
 });
 
-test('中英文词典键完全一致', async () => {
+test('英文词典无空键、无中文值', async () => {
   const src = await import('node:fs/promises').then((fs) =>
     fs.readFile(new URL('../src/core/i18n.js', import.meta.url), 'utf8')
   );
   const body = src.slice(src.indexOf('const DICT'), src.indexOf('const UNGROUPED'));
-  const zh = body.slice(body.indexOf('zh: {'), body.indexOf('en: {'));
-  const en = body.slice(body.indexOf('en: {'));
-  const keys = (s) => new Set([...s.matchAll(/^\s*'([^']+)':/gm)].map((m) => m[1]));
-  const zk = keys(zh);
-  const ek = keys(en);
-  assert.deepEqual([...zk].filter((k) => !ek.has(k)), []);
-  assert.deepEqual([...ek].filter((k) => !zk.has(k)), []);
+  assert.ok(body.includes('en: {'));
+  assert.doesNotMatch(body, /zh:/);
+  const keys = [...body.matchAll(/^\s*'([^']+)':/gm)].map((m) => m[1]);
+  assert.ok(keys.length > 200);
+  assert.equal(new Set(keys).size, keys.length);
+  // 只看字符串值，不看注释：UI 文案不得出现中文。
+  const values = [...body.matchAll(/^\s*'[^']+':\s*'(.*)',?\s*$/gm)].map((m) => m[1]);
+  assert.ok(values.length > 100);
+  assert.equal(values.filter((v) => /[\u4e00-\u9fff]/.test(v)).length, 0);
 });

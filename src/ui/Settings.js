@@ -1,22 +1,18 @@
 // 设置菜单：画面比例、解码方式、开机自动播放、字号、语言、刷新/清理、源管理
 import { KEY } from '../core/keys.js';
 import { getSettings, saveSettings, clearEpgCache, clearCatchupProbe } from '../core/storage.js';
-import { t, resolveLang } from '../core/i18n.js';
+import { t } from '../core/i18n.js';
 import { esc } from '../core/util.js';
 
 const ASPECTS = ['16:9', '4:3', 'fill'];
 const DECODERS = ['auto', 'native', 'hls'];
 const FONT_SCALES = [0.9, 1, 1.1];
-const LANGS = ['auto', 'zh', 'en'];
 const SLEEPS = [0, 15, 30, 60, 90, 120];
 
 const aspectLabel = (v) => (v === 'fill' ? t('label.fill') : v);
 const decoderLabel = (v) => (v === 'auto' ? t('label.auto') : v === 'native' ? t('label.native') : 'hls.js');
 const fontLabel = (v) => (v === 0.9 ? t('label.small') : v === 1.1 ? t('label.large') : t('label.medium'));
 const sleepLabel = (v) => (v > 0 ? t('label.minutes', { n: v }) : t('label.off'));
-const langName = (v) => (v === 'en' ? 'English' : '中文');
-const langLabel = (v) =>
-  v === 'zh' || v === 'en' ? langName(v) : t('label.system', { lang: langName(resolveLang('auto')) });
 
 export class Settings {
   constructor(el) {
@@ -76,7 +72,6 @@ export class Settings {
       { key: 'autoPlay', type: 'select', label: t('settings.autoPlay'), value: this.s.autoPlayLast ? t('label.on') : t('label.off') },
       { key: 'netSpeed', type: 'select', label: t('settings.netSpeed'), value: this.s.showNetSpeed ? t('label.on') : t('label.off') },
       { key: 'fontScale', type: 'select', label: t('settings.fontScale'), value: fontLabel(this.s.fontScale) },
-      { key: 'language', type: 'select', label: t('settings.language'), value: langLabel(this.s.language) },
       { key: 'audio', type: 'select', label: t('settings.audio'), value: tracks.audio || t('label.auto') },
       { key: 'subtitles', type: 'select', label: t('settings.subtitles'), value: tracks.subtitles || t('label.off') },
       { key: 'sleep', type: 'select', label: t('settings.sleep'), value: sleepLabel(this.s.sleepMinutes) },
@@ -155,9 +150,6 @@ export class Settings {
         break;
       case 'fontScale':
         this.s.fontScale = cyc(FONT_SCALES, this.s.fontScale);
-        break;
-      case 'language':
-        this.s.language = cyc(LANGS, this.s.language || 'auto');
         break;
       case 'audio':
         if (this.onCycleAudio) this.onCycleAudio(dir);
