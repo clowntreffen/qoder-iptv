@@ -2,6 +2,10 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.63
+- Catch-up now remembers where you stopped: leaving or switching away saves the position, and opening the same programme again asks to resume, start over, or cancel.
+- A saved position is dropped automatically once the programme is nearly finished, so it cannot offer a resume at the very end.
+
 ## 1.1.62
 - Fixed channel zapping inside the favourites group: CH+/CH- now stays among favourites until a non-favourite is selected, and rapid zapping keeps that context.
 - Parental PIN is now stored as a salted SHA-256 hash (legacy plaintext PINs migrate on startup); changing an existing PIN requires the old PIN, and backups no longer contain it.

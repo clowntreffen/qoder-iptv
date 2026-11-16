@@ -235,6 +235,18 @@ body {
 .exit-btn.focused:hover { background: var(--ui-focus-fill); }
 .exit-btn.danger.focused { background: #a64150; color: #fff; box-shadow: inset 0 0 0 2px #ffb4bb; }
 
+/* ===== 回看续播提示 ===== */
+#resume-prompt { z-index: 70; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; }
+.resume-box {
+  width: 880px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 28px; padding: 56px 48px;
+  box-shadow: var(--ui-shadow); text-align: center;
+}
+.resume-box .resume-title { font-size: 42px; color: #fff; margin-bottom: 14px; }
+.resume-box .resume-message { font-size: 28px; color: var(--ui-muted); margin-bottom: 46px; }
+.resume-box .resume-btns { display: flex; justify-content: center; }
+.resume-btns > * + * { margin-left: 28px; }
+.resume-btns .exit-btn { min-width: 240px; }
+
 /* ===== 四栏频道菜单 ===== */
 #channel-menu {
   display: flex; padding: 32px;

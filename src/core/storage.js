@@ -191,6 +191,42 @@ export function clearRecents() {
   remove('recents');
 }
 
+// ---- 回看续播位置（秒，按频道键）----
+// 断点续看：回看途中退出/换台时把位置落盘，下次点同一节目先问「继续 / 从头」。
+// 单张映射存全部频道，超过上限按写入顺序淘汰（与 lastSource 同一策略）。
+const RESUME_MAX = 200;
+function resumeMap(fallback) {
+  const v = read('resume', null);
+  return v && typeof v === 'object' && !Array.isArray(v) ? v : fallback;
+}
+export function getResumePosition(key) {
+  if (!key) return 0;
+  const map = resumeMap(null);
+  const v = map ? map[key] : undefined;
+  return Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+}
+export function setResumePosition(key, secs) {
+  if (!key) return;
+  const s = Number.isFinite(secs) ? Math.max(0, Math.floor(secs)) : 0;
+  if (!s) { removeResumePosition(key); return; }
+  const map = { ...resumeMap({}) };
+  delete map[key];
+  map[key] = s;
+  const keys = Object.keys(map);
+  if (keys.length > RESUME_MAX) {
+    keys.slice(0, keys.length - RESUME_MAX).forEach((k) => delete map[k]);
+  }
+  write('resume', map);
+}
+export function removeResumePosition(key) {
+  if (!key) return;
+  const map = resumeMap(null);
+  if (!map || !(key in map)) return;
+  const next = { ...map };
+  delete next[key];
+  write('resume', next);
+}
+
 // ---- M3U 离线缓存 ----
 export function getM3uCache(url) {
   const v = read('m3u:' + url, null);

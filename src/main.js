@@ -19,7 +19,10 @@ import {
   setLastSourceIdx,
   getCatchupProbe,
   setCatchupProbe,
-  recordRecent
+  recordRecent,
+  getResumePosition,
+  setResumePosition,
+  removeResumePosition
 } from './core/storage.js';
 import { activeDeadUrls } from './core/deadUrls.js';
 import { StallWatchdog } from './core/stallWatchdog.js';
@@ -39,6 +42,7 @@ import { GroupManager } from './ui/GroupManager.js';
 import { PlayerTuning } from './ui/PlayerTuning.js';
 import { DeviceInfo } from './ui/DeviceInfo.js';
 import { CatchupBar } from './ui/CatchupBar.js';
+import { ResumePrompt } from './ui/ResumePrompt.js';
 import { NetSpeed } from './ui/NetSpeed.js';
 import { Search } from './ui/Search.js';
 import { PinEntry } from './ui/PinEntry.js';
@@ -73,6 +77,7 @@ const groupManager = new GroupManager($('group-manager'));
 const playerTuning = new PlayerTuning($('player-tuning'));
 const deviceInfo = new DeviceInfo($('device-info'), player);
 const catchupBar = new CatchupBar($('catchup-bar'), player, $('speed-badge'));
+const resumePrompt = new ResumePrompt($('resume-prompt'));
 const netSpeed = new NetSpeed($('net-speed'), player);
 const search = new Search($('search'));
 const pinEntry = new PinEntry($('pin-entry'));
@@ -289,12 +294,25 @@ function rememberPlayingSource() {
   setLastSourceIdx(ch.key, ch.sourceIdx);
 }
 
+// 回看时先落盘续播位置， bevor der Kanal gewechselt wird.
+// (Vor allem beim „Zurück zu Live“ sowie bei Source/Group-Wechsel.)
+function rememberResumeIfCatchup() {
+  if (!player.isCatchup() || !app.current) return;
+  const key = app.current.key;
+  const pos = player.position();
+  if (!(pos > 0)) { removeResumePosition(key); return; }
+  const dur = player.video && isFinite(player.video.duration) ? player.video.duration : 0;
+  if (dur > 0 && pos >= dur - 5) { removeResumePosition(key); return; }
+  setResumePosition(key, pos);
+}
+
 // playLive(ch, delay, mode)：delay>0 时先只更新 OSD/状态，延迟后才真正起流。
 // 用于连按上下键快速翻台——中间台不会各自发起一次加载，只加载最终停留的那个台。
 // mode 设定后续换台上下文：'all'（默认）或 'fav'（收藏组内换台）。
 function playLive(ch, delay = 0, mode = 'all') {
   if (!ch) return;
   clearTimeout(playLive._t);
+  rememberResumeIfCatchup();
   app.zapMode = mode;
 
   // 选中的就是当前正在正常播放的频道：不重新起流，只刷新 OSD，
@@ -324,14 +342,39 @@ function playLive(ch, delay = 0, mode = 'all') {
   else start();
 }
 
+// 回看断点续播： gespeicherte Position (>10s vor Ende) fragt vor dem Start ab.
 function playCatchup(ch, programme) {
   const url = buildCatchupUrl(ch, programme);
   if (!url) {
     toast(t('toast.noCatchup'));
     return;
   }
+  const saved = getResumePosition(ch.key);
+  const dur = programme && programme.start && programme.stop && !isNaN(programme.stop)
+    ? (programme.stop - programme.start) / 1000
+    : 0;
+  if (saved > 0) {
+    if (!dur || saved < dur - 10) {
+      resumePrompt.show({
+        title: programme.title,
+        position: saved,
+        onResume: () => startCatchup(ch, programme, url, saved),
+        onStartOver: () => {
+          removeResumePosition(ch.key);
+          startCatchup(ch, programme, url, 0);
+        },
+        onCancel: () => {}
+      });
+      return;
+    }
+    removeResumePosition(ch.key);
+  }
+  startCatchup(ch, programme, url, 0);
+}
+
+function startCatchup(ch, programme, url, resumeAt) {
   app.current = ch;
-  player.playCatchup(ch, programme, url, app.settings.decoder);
+  player.playCatchup(ch, programme, url, app.settings.decoder, resumeAt);
   beginLoading();
   catchupBar.show(programme);
   toast(t('toast.catchup', { title: programme.title }), 3000);
@@ -682,6 +725,7 @@ function relocalize() {
   if (search.isOpen()) search.render();
   if (backupDialog.isOpen()) backupDialog.render();
   if (pinEntry.isOpen()) pinEntry.render();
+  if (resumePrompt.isOpen()) resumePrompt.render();
   if (statusBar.isVisible()) statusBar.show(5000);
   if (osd.isVisible() && app.current) {
     osd.show(app.current, {
@@ -863,6 +907,7 @@ function checkReminders() {
       toast(t('toast.reminderDueGone', { title: r.title || '' }), 6000);
     }
   }
+  rememberResumeIfCatchup();
 }
 setInterval(checkReminders, 30000);
 
@@ -1027,6 +1072,7 @@ function onKey(code, event) {
   if (settings.isOpen()) return settings.handleKey(code);
   if (epgGuide.isOpen()) return epgGuide.handleKey(code);
   if (channelMenu.isOpen()) return channelMenu.handleKey(code);
+  if (resumePrompt.isOpen()) return resumePrompt.handleKey(code);
 
   // 回看控制条：方向键调进度（其余键交回下方常规处理）
   if (player.isCatchup() && catchupBar.handleKey(code)) return true;

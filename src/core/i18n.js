@@ -194,6 +194,13 @@ const DICT = {
     'exit.cancel': '取消',
     'exit.exit': '退出',
 
+    // 回看续播
+    'resume.title': '继续观看',
+    'resume.message': '上次看到 {position}，要继续吗？',
+    'resume.resume': '继续',
+    'resume.startOver': '从头开始',
+    'resume.cancel': '取消',
+
     // toast 提示
     'toast.noCatchup': '该节目暂不支持回看',
     'toast.catchup': '正在回看：{title}',
@@ -601,6 +608,13 @@ const DICT = {
     'exit.sub': 'Exit live TV and return to the TV home screen?',
     'exit.cancel': 'Cancel',
     'exit.exit': 'Exit',
+
+    // catch-up resume
+    'resume.title': 'Resume',
+    'resume.message': 'You stopped at {position}. Resume?',
+    'resume.resume': 'Resume',
+    'resume.startOver': 'Start over',
+    'resume.cancel': 'Cancel',
 
     // toast
     'toast.noCatchup': 'Catch-up is not available for this programme',

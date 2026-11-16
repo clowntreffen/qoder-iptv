@@ -1943,11 +1943,13 @@ export class Player {
     this._load(channel.url, decoder);
   }
 
-  // 播放回看（倍速不跨节目保留，每次都从 1× 开始）
-  playCatchup(channel, programme, url, decoder = 'auto') {
+  // 播放回看（倍速不跨节目保留，每次都从 1× 开始）。
+  // resumeAt>0 时从上次续播位置起播；_resetRate 会先清掉 _resumeAt，所以必须在其后设置。
+  playCatchup(channel, programme, url, decoder = 'auto', resumeAt = 0) {
     this.mode = 'catchup';
     this.current = { channel, programme, url };
     this._resetRate();
+    this._resumeAt = isFinite(resumeAt) && resumeAt > 0 ? resumeAt : 0;
     this._load(url, decoder);
   }
 
