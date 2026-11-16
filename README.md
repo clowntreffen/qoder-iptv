@@ -8,6 +8,12 @@ An open-source M3U / IPTV player for LG webOS TVs (webOS 5.3+, tested on webOS 6
 
 **No channels, playlists, programmes or EPG data are included.** You add your own M3U playlist and XMLTV/DIYP EPG sources. Only use content you are legally entitled to access. The app does not bypass accounts, authentication or DRM.
 
+## Download this fork
+[com.qoder.iptv_1.1.60_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.60/com.qoder.iptv_1.1.60_all.ipk) — built from this fork, not from upstream.  
+SHA256: `e580c27e982d4cab9c7bf13ac6acc00a75c74c7c80c6f2e110e239046906b8eb`
+
+Install with LG webOS dev mode / Glasshouse. No playlists, channels or EPG data are included.
+
 ## Changes in this fork
 - Rebranded as **Qoder IPTV** with a new textless purple/blue TV-play icon and English app description.
 - Favourites are always visible as the first group in the channel menu. Add/remove with **Yellow** while watching or in the channel list, **INFO/MENU** on remotes that have them, or by tapping the ☆/★ next to a channel.
@@ -72,6 +78,12 @@ In the browser, M3U/EPG requests may hit CORS limits; the dev server provides a 
 运行在 LG webOS 电视（webOS 5.3+，主要在 webOS 6 及以上测试）上的开源 M3U / IPTV 播放器，基于 Vite 与 hls.js。
 
 **本应用不包含任何频道、播放列表、节目或 EPG 数据**，M3U 与 EPG 均由用户自行添加。请只使用你有合法权利访问的内容；本应用不绕过账号、鉴权或 DRM。
+
+### 下载本分支构建
+[com.qoder.iptv_1.1.60_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.60/com.qoder.iptv_1.1.60_all.ipk) — 由本分支构建，不是上游原版。  
+SHA256: `e580c27e982d4cab9c7bf13ac6acc00a75c74c7c80c6f2e110e239046906b8eb`
+
+使用 LG webOS 开发者模式 / Glasshouse 安装。不包含任何播放列表、频道或 EPG 数据。
 
 ### 本分支改动
 - 更名为 **Qoder IPTV**，使用新的无文字紫蓝电视播放图标和英文应用简介。
