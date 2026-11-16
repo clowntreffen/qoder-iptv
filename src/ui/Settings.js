@@ -28,6 +28,7 @@ export class Settings {
     this.onRefreshEpg = null;
     this.onOpenSources = null;
     this.onOpenGroups = null;
+    this.onOpenGroupLocks = null;
     this.onOpenTuning = null;
     this.onOpenDevice = null;
     this.onCycleAudio = null;
@@ -83,6 +84,7 @@ export class Settings {
       { key: 'refreshEpg', type: 'button', label: t('settings.refreshEpg') },
       { key: 'clearEpg', type: 'button', label: t('settings.clearEpg') },
       { key: 'groups', type: 'button', label: t('settings.groupManager') },
+      { key: 'groupLocks', type: 'button', label: t('settings.groupLocks') },
       { key: 'sources', type: 'button', label: t('settings.sourceManager') },
       { key: 'tuning', type: 'button', label: t('settings.playerTuning') },
       { key: 'device', type: 'button', label: t('settings.deviceInfo') },
@@ -197,6 +199,10 @@ export class Settings {
       case 'groups':
         this.close();
         if (this.onOpenGroups) this.onOpenGroups();
+        break;
+      case 'groupLocks':
+        this.close();
+        if (this.onOpenGroupLocks) this.onOpenGroupLocks();
         break;
       case 'sources':
         this.close();

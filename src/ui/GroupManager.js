@@ -9,13 +9,15 @@ export class GroupManager {
   constructor(el) {
     this.el = el;
     this.groups = []; // [{ name, count }] 当前源的全部分组（含已隐藏的，否则没法再打开）
-    this.hidden = new Set(); // 已隐藏的分组名
+    this.hidden = new Set(); // 已隐藏的分组名（hide 模式）
+    this.locked = new Set(); // 已锁的分组名（lock 模式）
+    this.mode = 'hide'; // 'hide' | 'lock'
     this.srcName = '';
     this.focusIdx = 0;
     this.msg = ''; // 行内提示（如「至少保留一个分组」）
     this.dirty = false;
 
-    this.onApply = null; // (hiddenGroupNames: string[]) => void，关闭时若有改动则回调
+    this.onApply = null; // (names: string[], mode: 'hide'|'lock') => void，关闭时若有改动则回调
     this.onClose = null;
 
     this.el.addEventListener('click', (e) => this._onClick(e));
@@ -42,12 +44,15 @@ export class GroupManager {
 
   /**
    * @param {Array<{name:string,count:number}>} groups 当前源的全部分组（隐藏过滤前）
-   * @param {Array<string>} hiddenNames 已隐藏的分组名
+   * @param {Array<string>} names hide 模式=已隐藏的分组名；lock 模式=已锁的分组名
    * @param {string} srcName 当前源名称，仅用于标题提示
+   * @param {'hide'|'lock'} mode 面板模式
    */
-  open(groups, hiddenNames, srcName) {
+  open(groups, names, srcName, mode = 'hide') {
     this.groups = groups || [];
-    this.hidden = new Set(hiddenNames || []);
+    this.mode = mode === 'lock' ? 'lock' : 'hide';
+    this.hidden = new Set(this.mode === 'hide' ? (names || []) : []);
+    this.locked = new Set(this.mode === 'lock' ? (names || []) : []);
     this.srcName = srcName || '';
     this.focusIdx = 0;
     this.msg = '';
@@ -66,14 +71,15 @@ export class GroupManager {
   }
 
   render() {
+    const lockMode = this.mode === 'lock';
     const listHtml = this.groups.length
       ? this.groups
           .map((g, i) => {
-            const off = this.hidden.has(g.name);
+            const off = lockMode ? this.locked.has(g.name) : this.hidden.has(g.name);
             const cls = 'form-row' + (i === this.focusIdx ? ' focused' : '');
-            const state = off
-              ? t('gm.rowHidden', { n: g.count })
-              : t('gm.rowShown', { n: g.count });
+            const state = lockMode
+              ? (off ? t('gm.rowLocked', { n: g.count }) : t('gm.rowUnlocked', { n: g.count }))
+              : (off ? t('gm.rowHidden', { n: g.count }) : t('gm.rowShown', { n: g.count }));
             return `<div class="${cls}" data-role="row" data-idx="${i}">
               <span class="label">${esc(groupLabel(g.name))}</span>
               <span class="value${off ? ' off' : ''}">${state}</span>
@@ -86,14 +92,16 @@ export class GroupManager {
     this.el.innerHTML = `
       <div class="panel">
         <div class="panel-close" data-role="close">✕</div>
-        <h2>${t('gm.title')}</h2>
-        <div class="hint">${t('gm.sub', { name: esc(this.srcName), n: this._visibleCount(), total: this.groups.length })}</div>
+        <h2>${lockMode ? t('gm.lockTitle') : t('gm.title')}</h2>
+        <div class="hint">${lockMode
+          ? t('gm.lockSub', { n: this.locked.size, total: this.groups.length })
+          : t('gm.sub', { name: esc(this.srcName), n: this._visibleCount(), total: this.groups.length })}</div>
         <div class="src-list">${listHtml}</div>
         ${this.msg ? `<div class="hint" style="color:#ffb74d">${esc(this.msg)}</div>` : ''}
         <div class="btn-row">
-          <div class="btn${this.focusIdx === btnIdx ? ' focused' : ''}" data-role="row" data-idx="${btnIdx}">${t('gm.showAll')}</div>
+          <div class="btn${this.focusIdx === btnIdx ? ' focused' : ''}" data-role="row" data-idx="${btnIdx}">${lockMode ? t('gm.lockAll') : t('gm.showAll')}</div>
         </div>
-        <div class="hint">${t('gm.hint')}</div>
+        <div class="hint">${lockMode ? t('gm.lockHint') : t('gm.hint')}</div>
       </div>
     `;
     const focused = this.el.querySelector('.focused');
@@ -101,10 +109,12 @@ export class GroupManager {
   }
 
   _confirm() {
-    // 末行：一键恢复全部分组
+    const lockMode = this.mode === 'lock';
+    // 末行：一键恢复/解锁全部分组
     if (this.focusIdx >= this.groups.length) {
-      if (this.hidden.size) {
-        this.hidden.clear();
+      const set = lockMode ? this.locked : this.hidden;
+      if (set.size) {
+        set.clear();
         this.dirty = true;
       }
       this.msg = '';
@@ -113,6 +123,14 @@ export class GroupManager {
     }
     const g = this.groups[this.focusIdx];
     if (!g) return;
+    if (lockMode) {
+      if (this.locked.has(g.name)) this.locked.delete(g.name);
+      else this.locked.add(g.name);
+      this.dirty = true;
+      this.msg = '';
+      this.render();
+      return;
+    }
     if (this.hidden.has(g.name)) {
       this.hidden.delete(g.name);
       this.dirty = true;
@@ -160,7 +178,8 @@ export class GroupManager {
     this.el.classList.add('hidden');
     if (this.dirty && this.onApply) {
       this.dirty = false;
-      this.onApply([...this.hidden]);
+      const names = this.mode === 'lock' ? [...this.locked] : [...this.hidden];
+      this.onApply(names, this.mode);
     }
     if (this.onClose) this.onClose();
   }

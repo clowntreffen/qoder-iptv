@@ -227,6 +227,19 @@ export function removeResumePosition(key) {
   write('resume', next);
 }
 
+// ---- 家长锁：分组级（跨源，按分组名）----
+// 被锁分组仍在频道菜单列出（带锁标），进入前要 PIN；换台序列会跳过。
+export function getLockedGroups() {
+  const list = read('lockedGroups', []);
+  return Array.isArray(list) ? list.filter((g) => typeof g === 'string' && g) : [];
+}
+export function setLockedGroups(list) {
+  write('lockedGroups', Array.isArray(list) ? list.filter((g) => typeof g === 'string' && g) : []);
+}
+export function isGroupLocked(name) {
+  return !!name && getLockedGroups().includes(name);
+}
+
 // ---- M3U 离线缓存 ----
 export function getM3uCache(url) {
   const v = read('m3u:' + url, null);

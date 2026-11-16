@@ -282,6 +282,7 @@ body {
 .cm-group-item .cm-gname.marquee { text-overflow: clip; }
 .cm-group-item .cm-gname.marquee > span { display: inline-block; }
 .cm-group-item .badge { flex-shrink: 0; font-size: 21px; font-weight: 500; color: var(--ui-muted); background: rgba(255,255,255,0.05); border-radius: 8px; padding: 3px 8px; }
+.cm-group-item .lock { flex-shrink: 0; font-size: 20px; font-weight: 600; color: #ffb74d; background: rgba(255,183,77,0.12); border-radius: 8px; padding: 3px 8px; }
 .cm-group-item.focused .badge { color: #fff; }
 .cm-group-item.focused { background: var(--ui-focus-fill); box-shadow: inset 0 0 0 2px #c8cbff; color: #fff; }
 .cm-group-item.active { color: var(--ui-accent); background: var(--ui-accent-soft); }

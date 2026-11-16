@@ -22,7 +22,9 @@ import {
   recordRecent,
   getResumePosition,
   setResumePosition,
-  removeResumePosition
+  removeResumePosition,
+  getLockedGroups,
+  setLockedGroups
 } from './core/storage.js';
 import { activeDeadUrls } from './core/deadUrls.js';
 import { StallWatchdog } from './core/stallWatchdog.js';
@@ -58,6 +60,9 @@ const app = {
   source: null, // 当前源
   settings: getSettings(),
   zapMode: 'all', // 换台上下文：'all' | 'fav'（在收藏组里选台后只在收藏间换）
+  lockedGroups: new Set(getLockedGroups()), // 家长锁：分组名（跨源）
+  unlockedGroups: new Set(), // 本次会话内已用 PIN 解锁的分组
+  groupLockVersion: 0, // 锁集合版本，供 zapOrder 缓存失效
   numBuffer: '',
   numTimer: null
 };
@@ -420,15 +425,19 @@ let lastZapDir = 1;
 // 这样上下键会在组内依次走，走到本组最后一个再按下就进入下一组的第一个台。
 // 收藏组不参与（它只是引用，避免同一个台被遍历两次）。结果按 app.channels 引用缓存。
 function zapOrder() {
-  if (zapOrder._src === app.channels && zapOrder._list) return zapOrder._list;
+  if (zapOrder._src === app.channels && zapOrder._lockVer === app.groupLockVersion && zapOrder._list) {
+    return zapOrder._list;
+  }
   const map = new Map();
   for (const ch of app.channels) {
+    if (!isGroupUnlocked(ch.group)) continue; // 锁定的分组不参与换台
     if (!map.has(ch.group)) map.set(ch.group, []);
     map.get(ch.group).push(ch);
   }
   const list = [];
   for (const arr of map.values()) list.push(...arr);
   zapOrder._src = app.channels;
+  zapOrder._lockVer = app.groupLockVersion;
   zapOrder._list = list;
   return list;
 }
@@ -524,8 +533,13 @@ function commitNumber() {
   const ch =
     app.channels.find((c) => String(c.chno) === String(n)) ||
     app.channels.find((c) => c.index === n);
-  if (ch) playLive(ch);
-  else toast(t('toast.channelNotFound', { num: n }));
+  if (ch) {
+    if (!isGroupUnlocked(ch.group)) {
+      toast(t('toast.groupLocked'));
+      return;
+    }
+    playLive(ch);
+  } else toast(t('toast.channelNotFound', { num: n }));
 }
 
 // ---- 加载源 ----
@@ -564,6 +578,24 @@ function applyGroupVisibility(hiddenArr) {
     if (visible.length) playLive(visible[0]);
   }
   toast(t('toast.groupsApplied', { n: visible.length }));
+}
+
+// 家长锁：分组是否可进（未锁，或本次会话已用 PIN 解锁）
+function isGroupUnlocked(name) {
+  if (!app.lockedGroups.has(name)) return true;
+  return app.unlockedGroups.has(name);
+}
+
+// 菜单/搜索/指南用的列表：隐藏分组与锁定分组都排除（隐藏已在 app.channels 层过滤）
+function visibleChannelsForMenu() {
+  return app.channels.filter((c) => isGroupUnlocked(c.group));
+}
+
+function applyGroupLocks(names) {
+  app.lockedGroups = new Set(names || []);
+  app.groupLockVersion++;
+  setLockedGroups([...app.lockedGroups]);
+  toast(t('toast.groupsLocked', { n: app.lockedGroups.size }));
 }
 
 async function loadSource(src, options = {}) {
@@ -915,8 +947,29 @@ setInterval(checkReminders, 30000);
 channelMenu.onPlayLive = (ch, opts) => playLive(ch, 0, opts && opts.zapMode);
 channelMenu.onPlayCatchup = playCatchup;
 channelMenu.onOpenSettings = () => settings.open();
-channelMenu.onOpenSearch = (key) => search.open(app.channels, key);
+channelMenu.onOpenSearch = (key) => search.open(visibleChannelsForMenu(), key);
 channelMenu.onToast = toast;
+channelMenu.isGroupUnlocked = (name) => isGroupUnlocked(name);
+// 锁定的分组：先验家长 PIN，成功才放行进组
+channelMenu.onRequestUnlock = (name, cb) => {
+  if (!app.settings.parentalPin) {
+    toast(t('toast.noPinForLock'));
+    cb(false);
+    return;
+  }
+  askPin({
+    title: t('pin.groupTitle'),
+    prompt: t('pin.groupPrompt'),
+    onSubmit: (pin) => {
+      if (!verifyPin(pin)) return false; // PinEntry 显示错误并保留输入
+      app.unlockedGroups.add(name);
+      app.groupLockVersion++;
+      cb(true);
+      return true;
+    },
+    onCancel: () => cb(false)
+  });
+};
 channelMenu.onProbeCatchup = probeChannelCatchup;
 channelMenu.catchupNote = catchupNote;
 
@@ -969,7 +1022,23 @@ settings.onOpenGroups = () => {
 
 sourceManager.onUseSource = (src) => loadSource(src);
 
-groupManager.onApply = applyGroupVisibility;
+groupManager.onApply = (names, mode) => {
+  if (mode === 'lock') applyGroupLocks(names);
+  else applyGroupVisibility(names);
+};
+
+settings.onOpenGroupLocks = () => {
+  if (!app.allGroups.length) {
+    toast(t('toast.noGroups'));
+    return;
+  }
+  groupManager.open(
+    app.allGroups,
+    [...app.lockedGroups],
+    app.source && app.source.name,
+    'lock'
+  );
+};
 
 settings.onOpenTuning = () => playerTuning.open(player.activePath());
 playerTuning.onWarmChange = (tuning) => player.applyWarmTuning(tuning);
@@ -1155,7 +1224,7 @@ function openChannelMenu() {
 function openEpgGuide() {
   if (!app.channels.length) return;
   if (!epgStore.loaded) toast(t('toast.noEpgData'));
-  epgGuide.open(app.channels, app.current && app.current.key);
+  epgGuide.open(visibleChannelsForMenu(), app.current && app.current.key);
 }
 
 function toggleFav() {

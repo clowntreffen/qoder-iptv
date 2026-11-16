@@ -1198,11 +1198,12 @@ test('main 收藏换台只在收藏间循环，并把 zapMode 继续传给 playL
   const favs = new Set(['A0', 'B2']);
   let favVer = 1;
   const calls = [];
-  const app = { channels, current: channels[0], zapMode: 'fav' };
+  const app = { channels, current: channels[0], zapMode: 'fav', groupLockVersion: 0 };
   const context = vm.createContext({
     app,
     isFavorite: (key) => favs.has(key),
     favVersion: () => favVer,
+    isGroupUnlocked: () => true,
     playLive: (ch, delay, mode) => {
       app.current = ch; // 真实 playLive 会更新当前台
       calls.push({ key: ch.key, delay, mode });

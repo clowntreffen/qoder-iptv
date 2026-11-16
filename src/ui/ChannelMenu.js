@@ -50,6 +50,9 @@ export class ChannelMenu {
     this.onOpenSearch = null;
     this.onClose = null;
     this.onToast = null;
+    // 分组被家长锁锁定：(名称, (解锁成功?) => void) => void；默认全部解锁
+    this.onRequestUnlock = null;
+    this.isGroupUnlocked = () => true;
     // 日期/节目单栏展开时回调，用于探测该频道所在网关支不支持回看（见 main.js）
     this.onProbeCatchup = null;
     this.catchupNote = null;
@@ -74,11 +77,7 @@ export class ChannelMenu {
     const idx = parseInt(item.dataset.idx, 10);
     if (role !== 'settings') this.settingsFocused = false;
     if (role === 'group') {
-      this.groupIdx = idx;
-      this.chanIdx = 0;
-      this.col = COL_CHAN;
-      this._loadEpg();
-      this.render();
+      this._enterGroup(idx);
     } else if (role === 'fav') {
       this.col = COL_CHAN;
       this.chanIdx = idx;
@@ -129,7 +128,7 @@ export class ChannelMenu {
       groups.push({ name: t('cm.recentGroup'), channels: recentChannels, recent: true });
     }
     for (const [name, list] of map.entries()) {
-      groups.push({ name, channels: list });
+      groups.push({ name, channels: list, locked: !this.isGroupUnlocked(name) });
     }
     this.groups = groups;
   }
@@ -246,7 +245,8 @@ export class ChannelMenu {
             'cm-group-item' +
             (i === this.groupIdx ? ' active' : '') +
             (this.col === COL_GROUP && !this.settingsFocused && i === this.groupIdx ? ' focused' : '');
-          return `<div class="${cls}" data-role="group" data-idx="${i}"><span class="cm-gname"><span>${esc(groupLabel(grp.name))}</span></span><span class="badge">${grp.channels.length}</span></div>`;
+          const lock = grp.locked ? `<span class="lock">${esc(t('gm.lockedBadge'))}</span>` : '';
+          return `<div class="${cls}" data-role="group" data-idx="${i}"><span class="cm-gname"><span>${esc(groupLabel(grp.name))}</span></span>${lock}<span class="badge">${grp.channels.length}</span></div>`;
         })
         .join('');
       // 内容没变就不重建：EPG 到达等重渲染不能把正在滚动的分组名打回开头
@@ -619,6 +619,9 @@ export class ChannelMenu {
       }
       // 右键：若在「设置」上，先退回分组列表
       if (this.settingsFocused) { this.settingsFocused = false; this.render(); return; }
+      // 右键：进入当前分组（被锁的先验 PIN）
+      this._enterGroup(this.groupIdx);
+      return;
     }
     const next = this.col + dir;
     if (next < COL_GROUP || next > COL_EPG) return;
@@ -656,6 +659,21 @@ export class ChannelMenu {
     }
   }
 
+  // 进入分组：被家长锁锁定的分组先走 PIN 回调，解锁成功才切到频道列。
+  _enterGroup(idx) {
+    const grp = this.groups[idx];
+    if (!grp) return;
+    const enter = () => {
+      this.groupIdx = idx;
+      this.chanIdx = 0;
+      this.col = COL_CHAN;
+      this._loadEpg();
+      this.render();
+    };
+    if (grp.fav || grp.recent || !grp.locked || !this.onRequestUnlock) { enter(); return; }
+    this.onRequestUnlock(grp.name, (ok) => { if (ok) enter(); });
+  }
+
   _confirm() {
     if (this.col === COL_GROUP) {
       // 「设置」入口 -> 打开设置
@@ -663,9 +681,8 @@ export class ChannelMenu {
         this._openSettings();
         return;
       }
-      // 分组 -> 进入频道列
-      this.col = COL_CHAN;
-      this.render();
+      // 分组 -> 进入频道列（锁定的先验 PIN）
+      this._enterGroup(this.groupIdx);
     } else if (this.col === COL_CHAN) {
       // 频道 -> 直接播直播
       const ch = this._curChannel();

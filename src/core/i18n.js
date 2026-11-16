@@ -186,6 +186,7 @@ const DICT = {
     'gm.hint':
       '上下选择分组，OK（或左右键）切换显示/隐藏，返回键关闭并生效。<br>隐藏的分组不出现在频道菜单，也不参与上下键换台；设置只对当前源生效。',
     'toast.groupsApplied': '分组已更新：显示 {n} 个频道',
+    'toast.groupsLocked': '家长锁已更新：锁定 {n} 个分组',
     'toast.noGroups': '当前源还没有加载到分组',
 
     // 退出确认
@@ -200,6 +201,20 @@ const DICT = {
     'resume.resume': '继续',
     'resume.startOver': '从头开始',
     'resume.cancel': '取消',
+
+    // 家长锁（分组）
+    'settings.groupLocks': '家长锁（分组）',
+    'gm.lockTitle': '家长锁（分组）',
+    'gm.lockSub': '锁定分组进入前需要输入家长 PIN。已锁 {n} / {total}',
+    'gm.rowLocked': '已锁定（{n} 个频道）',
+    'gm.rowUnlocked': '未锁定（{n} 个频道）',
+    'gm.lockAll': '全部解锁',
+    'gm.lockHint': 'OK / ◄ ► 切换锁定；返回键保存',
+    'gm.lockedBadge': '锁',
+    'pin.groupTitle': '输入家长 PIN',
+    'pin.groupPrompt': '该分组已锁定',
+    'toast.noPinForLock': '请先在设置里设置家长 PIN',
+    'toast.groupLocked': '该分组已锁定',
 
     // toast 提示
     'toast.noCatchup': '该节目暂不支持回看',
@@ -601,6 +616,7 @@ const DICT = {
     'gm.hint':
       'Up/Down to select a group, OK (or Left/Right) to toggle shown/hidden, Back to close and apply.<br>Hidden groups are excluded from the channel menu and from Up/Down zapping; the setting applies to the current source only.',
     'toast.groupsApplied': 'Groups updated: {n} channels shown',
+    'toast.groupsLocked': 'Parental locks updated: {n} groups locked',
     'toast.noGroups': 'No groups loaded for the current source yet',
 
     // Exit dialog
@@ -615,6 +631,20 @@ const DICT = {
     'resume.resume': 'Resume',
     'resume.startOver': 'Start over',
     'resume.cancel': 'Cancel',
+
+    // parental group locks
+    'settings.groupLocks': 'Parental locks (groups)',
+    'gm.lockTitle': 'Parental locks (groups)',
+    'gm.lockSub': 'Locked groups ask for the parental PIN. Locked {n} / {total}',
+    'gm.rowLocked': 'Locked ({n} channels)',
+    'gm.rowUnlocked': 'Unlocked ({n} channels)',
+    'gm.lockAll': 'Unlock all',
+    'gm.lockHint': 'OK / ◄ ► toggle lock; Back saves',
+    'gm.lockedBadge': 'Lock',
+    'pin.groupTitle': 'Enter parental PIN',
+    'pin.groupPrompt': 'This group is locked',
+    'toast.noPinForLock': 'Set a parental PIN in Settings first',
+    'toast.groupLocked': 'This group is locked',
 
     // toast
     'toast.noCatchup': 'Catch-up is not available for this programme',

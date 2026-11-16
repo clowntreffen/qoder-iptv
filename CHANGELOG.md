@@ -2,6 +2,9 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.64
+- Added parental group locks: choose groups under Settings → Parental locks. Entering a locked group asks for the parental PIN (kept until the app restarts), and locked groups are skipped by CH+/CH-, number entry, search and the guide while staying listed with a lock badge.
+
 ## 1.1.63
 - Catch-up now remembers where you stopped: leaving or switching away saves the position, and opening the same programme again asks to resume, start over, or cancel.
 - A saved position is dropped automatically once the programme is nearly finished, so it cannot offer a resume at the very end.
