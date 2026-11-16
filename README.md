@@ -63,8 +63,7 @@ npm run package   # builds dist/ and creates com.qoder.iptv_<version>_all.ipk
 In the browser, M3U/EPG requests may hit CORS limits; the dev server provides a local proxy. The webOS app itself has no such restriction.
 
 ## Install
-- Through [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel) / [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) from the webosbrew repository, or
-- Download the IPK from [Releases](https://github.com/clowntreffen/qoder-iptv/releases) and install it with `ares-install --device tv <file>.ipk`.
+- Download the IPK from [Releases](https://github.com/clowntreffen/qoder-iptv/releases) and install it with [Glasshouse](https://github.com/rorygallagher2024/glasshouse) (upload the IPK), or with `ares-install --device tv <file>.ipk`.
 
 ## License
 [MIT](LICENSE). Bundled third-party software: hls.js (Apache License 2.0); see [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
