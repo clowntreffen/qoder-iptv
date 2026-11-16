@@ -13,10 +13,11 @@ SHA256: `e580c27e982d4cab9c7bf13ac6acc00a75c74c7c80c6f2e110e239046906b8eb`
 Install with LG webOS dev mode / Glasshouse. No playlists, channels or EPG data are included.
 
 ## Changes in this fork
+See [CHANGELOG.md](CHANGELOG.md) for the full fork history.
 - Rebranded as **Qoder IPTV** with a new textless purple/blue TV-play icon and English app description.
 - Favourites are always visible as the first group in the channel menu. Add/remove with **Yellow** while watching or in the channel list, **INFO/MENU** on remotes that have them, or by tapping the ☆/★ next to a channel.
 - Channel keys are aligned: **CH+ / D-pad UP** = next channel, **CH- / D-pad DOWN** = previous channel.
-- Source tests use a 3 s per-request / 6 s total timeout, so slow IPTV gateways are not marked dead too early.
+- Source liveness check waits longer before marking a source dead: **3 s per request / 6 s total** (was 1.2 s / 2.5 s), so slow IPTV gateways are not falsely marked dead.
 - Packaging targets **Node.js 20+** (`.nvmrc` = 22) and the app declares `requiredACG: []`.
 - Remote-key documentation updated for the LG C5/MR25GA Magic Remote.
 
