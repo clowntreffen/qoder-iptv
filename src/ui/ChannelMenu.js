@@ -2,7 +2,7 @@
 import { KEY } from '../core/keys.js';
 import { epgStore } from '../core/epgStore.js';
 import { isCatchupAvailable } from '../core/catchup.js';
-import { isFavorite, favVersion } from '../core/storage.js';
+import { isFavorite, favVersion, toggleFavorite } from '../core/storage.js';
 import { fmtTime, fmtDayLabel, esc, logoHtml, isLogoFailed, markLogoFailed } from '../core/util.js';
 import { t, getLang, groupLabel } from '../core/i18n.js';
 
@@ -48,6 +48,7 @@ export class ChannelMenu {
     this.onPlayCatchup = null;
     this.onOpenSettings = null;
     this.onClose = null;
+    this.onToast = null;
     // 日期/节目单栏展开时回调，用于探测该频道所在网关支不支持回看（见 main.js）
     this.onProbeCatchup = null;
     this.catchupNote = null;
@@ -77,6 +78,10 @@ export class ChannelMenu {
       this.col = COL_CHAN;
       this._loadEpg();
       this.render();
+    } else if (role === 'fav') {
+      this.col = COL_CHAN;
+      this.chanIdx = idx;
+      this._toggleFav();
     } else if (role === 'chan') {
       this.col = COL_CHAN;
       this.chanIdx = idx;
@@ -116,8 +121,7 @@ export class ChannelMenu {
       if (!map.has(ch.group)) map.set(ch.group, []);
       map.get(ch.group).push(ch);
     }
-    const groups = [];
-    if (favChannels.length) groups.push({ name: t('cm.favGroup'), channels: favChannels });
+    const groups = [{ name: t('cm.favGroup'), channels: favChannels, fav: true }];
     for (const [name, list] of map.entries()) {
       groups.push({ name, channels: list });
     }
@@ -188,6 +192,7 @@ export class ChannelMenu {
       <div class="cm-col cm-groups">
         <div class="cm-title">${t('cm.group')}</div>
         <div class="cm-list" id="cm-group-list"></div>
+        <div class="cm-favhint">${t('cm.favHint')}</div>
         <div class="cm-settings" id="cm-settings" data-role="settings"><span class="ico">⚙</span><span>${t('cm.settings')}</span></div>
       </div>
       <div class="cm-col cm-channels">
@@ -275,6 +280,19 @@ export class ChannelMenu {
     }
     const listEl = this.el.querySelector('#cm-chan-list');
     if (!listEl) return;
+
+    if (grp.fav && !chans.length) {
+      this._chanSig = 'fav-empty|' + getLang();
+      this._chanArr = chans;
+      this._paintedFoc = null;
+      this._winStart = 0;
+      this._winEnd = 0;
+      listEl.style.setProperty('--sp-top', '0px');
+      listEl.style.setProperty('--sp-bottom', '0px');
+      listEl.classList.remove('no-logo');
+      listEl.innerHTML = `<div class="cm-empty">${t('cm.favEmpty')}</div>`;
+      return;
+    }
 
     const sig = this._channelsSig(chans);
     // 数组身份也要比：分组对象每次 open() 都是新建的，而签名里的版本号可能
@@ -390,7 +408,8 @@ export class ChannelMenu {
   _channelItemHtml(ch, i) {
     const nn = epgStore.getNowNext(ch);
     const nowTitle = nn.now ? nn.now.title : '';
-    const fav = isFavorite(ch.key) ? '<span class="fav">★</span>' : '';
+    const favOn = isFavorite(ch.key);
+    const fav = `<span class="fav${favOn ? ' on' : ''}" data-role="fav" data-idx="${i}" title="${esc(t('cm.favToggle'))}">${favOn ? '★' : '☆'}</span>`;
     const multi = ch.sources && ch.sources.length > 1
       ? `<span class="src-badge">${t('cm.srcBadge', { n: ch.sources.length })}</span>` : '';
     const cls =
@@ -404,7 +423,7 @@ export class ChannelMenu {
             <div class="num">${esc(String(ch.chno || ch.index))}</div>
             <div class="logo">${logoHtml(ch)}</div>
             <div class="meta">
-              <div class="name">${esc(ch.name)} ${fav} ${multi}</div>
+              <div class="name">${fav} ${esc(ch.name)} ${multi}</div>
               <div class="now">${esc(nowTitle)}</div>
             </div>
             <div class="cm-chan-hint" data-role="expand" data-idx="${i}">${t('cm.channelHint')}</div>
@@ -534,6 +553,11 @@ export class ChannelMenu {
       case KEY.OK:
         this._confirm();
         break;
+      case KEY.INFO:
+      case KEY.MENU:
+      case KEY.YELLOW:
+        this._toggleFav();
+        break;
       case KEY.BACK:
         this.close();
         break;
@@ -585,6 +609,33 @@ export class ChannelMenu {
     // 首次展开日期栏时，为当前频道+日期重新加载节目单，避免右侧回看栏空白
     if (next === COL_DATE) this._loadEpg();
     this.render();
+  }
+
+  // INFO/MENU 收藏当前焦点频道。没有彩色键的遥控器也能用。
+  _toggleFav() {
+    const ch = this._curChannel();
+    if (!ch) return;
+    const wasFav = isFavorite(ch.key);
+    toggleFavorite(ch.key);
+    this._buildGroups();
+    if (wasFav) {
+      // 取消收藏后焦点频道可能已从收藏组消失：回到它原本所在的分组。
+      const gi = this.groups.findIndex((g) => g.channels.some((c) => c.key === ch.key));
+      if (gi >= 0) {
+        this.groupIdx = gi;
+        this.chanIdx = this.groups[gi].channels.findIndex((c) => c.key === ch.key);
+      } else {
+        this.chanIdx = 0;
+      }
+    } else {
+      const grp = this._curGroup();
+      this.chanIdx = Math.min(this.chanIdx, Math.max(0, grp.channels.length - 1));
+    }
+    this._loadEpg();
+    this.render();
+    if (this.onToast) {
+      this.onToast(wasFav ? t('toast.unfaved') : t('toast.faved', { name: ch.name }));
+    }
   }
 
   _confirm() {

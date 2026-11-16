@@ -601,7 +601,7 @@ export class SourceManager {
       const dead = new Set();
       let done = 0;
       await runPool(urls, 20, async (u) => {
-        const ok = await probeUrl(u, 1200, 2500, run.controller.signal);
+        const ok = await probeUrl(u, 3000, 6000, run.controller.signal);
         if (!isCurrent() || ok === null) return;
         if (!ok) dead.add(u);
         done++;

@@ -995,7 +995,7 @@ test('probe timeout records a dead URL, unlike intentional task cancellation', a
   serveOne(f, (request) => pendingRequest(request).promise);
   const task = f.manager._testSource(0);
   await flush();
-  await f.time.advance(1200);
+  await f.time.advance(3000);
   await task;
   assert.deepEqual(f.stored()[0].deadUrls, [channelUrl(0)]);
   assert.equal(f.saves.length, 1);

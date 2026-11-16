@@ -612,6 +612,7 @@ window.addEventListener('orientationchange', fitScreen);
 channelMenu.onPlayLive = playLive;
 channelMenu.onPlayCatchup = playCatchup;
 channelMenu.onOpenSettings = () => settings.open();
+channelMenu.onToast = toast;
 channelMenu.onProbeCatchup = probeChannelCatchup;
 channelMenu.catchupNote = catchupNote;
 
@@ -753,12 +754,16 @@ function onKey(code, event) {
       if (!switchSource(1)) openChannelMenu();
       break;
     case KEY.UP:
-    case KEY.CH_UP:
-      switchByOffset(-1);
+      switchByOffset(1);
       break;
     case KEY.DOWN:
-    case KEY.CH_DOWN:
+      switchByOffset(-1);
+      break;
+    case KEY.CH_UP:
       switchByOffset(1);
+      break;
+    case KEY.CH_DOWN:
+      switchByOffset(-1);
       break;
     case KEY.RED:
       openEpgGuide();
@@ -767,6 +772,7 @@ function onKey(code, event) {
       settings.open();
       break;
     case KEY.YELLOW:
+    case KEY.MENU:
       toggleFav();
       break;
     case KEY.BLUE:

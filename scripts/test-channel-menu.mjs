@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ChannelMenu } from '../src/ui/ChannelMenu.js';
 import { logoHtml, logoText, markLogoFailed } from '../src/core/util.js';
+import { saveFavorites } from '../src/core/storage.js';
 
 const CHAN_ROW_H = 100; // 与 ChannelMenu.js 内常量一致
 const ROWS = 5000;
@@ -193,13 +194,57 @@ test('switching groups re-anchors the window to the top of the new group', () =>
   menu.handleKey(37); // LEFT -> 分组列
   menu.handleKey(40); // DOWN -> B 组
   menu.handleKey(39); // RIGHT -> 回频道列
-  assert.equal(menu.groupIdx, 1);
+  assert.equal(menu.groupIdx, 2); // 收藏组恒为第 0 组
   assert.equal(menu.chanIdx, 0);
   const list = el.byId['cm-chan-list'];
   assert.equal(menu._winStart, 0);
   assert.equal(list.scrollTop, 0);
   assert.equal(list.children.length, 19);
   menu.close();
+});
+
+test('favorites group always exists and INFO toggles the focused channel', () => {
+  saveFavorites([]);
+  const { el, menu, channels } = setup();
+  menu.open(channels, channels[0].key);
+  assert.equal(menu.groups[0].fav, true);
+  assert.equal(menu.groups[0].channels.length, 0);
+  menu.handleKey(37); // LEFT -> 分组列
+  menu.handleKey(38); // UP -> 收藏组
+  menu.handleKey(39); // RIGHT -> 频道列
+  assert.match(el.byId['cm-chan-list'].innerHTML, /cm-empty/);
+
+  menu.open(channels, channels[0].key);
+  menu.handleKey(457); // INFO
+  assert.equal(menu.groups[0].channels.length, 1);
+  assert.equal(menu.groups[0].channels[0].key, channels[0].key);
+  assert.equal(menu.groupIdx, 1); // 仍在 A 组，焦点不跳走
+
+  menu.handleKey(457); // INFO
+  assert.equal(menu.groups[0].channels.length, 0);
+  assert.equal(menu.groupIdx, 1);
+  assert.equal(menu.chanIdx, 0);
+  menu.close();
+  saveFavorites([]);
+});
+
+test('tapping the star toggles a favourite without starting playback', () => {
+  saveFavorites([]);
+  const { el, menu, channels, played } = setup();
+  menu.open(channels, channels[0].key);
+  const click = (idx) =>
+    el._listeners.click({ target: { closest: () => ({ dataset: { role: 'fav', idx: String(idx) } }) } });
+
+  click(0);
+  assert.equal(menu.groups[0].channels.length, 1);
+  assert.equal(menu.groups[0].channels[0].key, channels[0].key);
+  assert.equal(played.length, 0);
+
+  click(0);
+  assert.equal(menu.groups[0].channels.length, 0);
+  assert.equal(played.length, 0);
+  menu.close();
+  saveFavorites([]);
 });
 
 test('scroll events re-anchor the window by scrollTop (mouse wheel path)', () => {

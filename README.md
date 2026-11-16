@@ -2,6 +2,8 @@
 
 [中文说明](#中文说明)
 
+> Custom fork of [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv). Original project and copyright: HCLGitHub, MIT licensed.
+
 An open-source M3U / IPTV player for LG webOS TVs (webOS 5.3+, tested on webOS 6 and later), built with Vite and [hls.js](https://github.com/video-dev/hls.js).
 
 **No channels, playlists, programmes or EPG data are included.** You add your own M3U playlist and XMLTV/DIYP EPG sources. Only use content you are legally entitled to access. The app does not bypass accounts, authentication or DRM.
@@ -27,7 +29,8 @@ Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
 | --- | --- |
 | OK | Channel menu |
 | ← / → | Switch to the previous / next source of the channel (opens the menu if there is only one) |
-| ↑ / ↓, CH± | Previous / next channel |
+| ↑ / ↓ | Next / previous channel |
+| CH+ / CH- | Next / previous channel |
 | Numbers | Go to channel number |
 | Red | Programme guide (EPG) |
 | Green | Settings |
@@ -38,7 +41,7 @@ Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
 | Stop / Back | Return to live from catch-up |
 
 ## Build
-Requires Node.js 18+.
+Requires Node.js 20+ (Node 22 recommended; see `.nvmrc`).
 ```sh
 npm install
 npm test          # unit tests
@@ -83,7 +86,8 @@ In the browser, M3U/EPG requests may hit CORS limits; the dev server provides a 
 | --- | --- |
 | OK | 呼出频道菜单 |
 | ← / → | 切换当前频道的上一个 / 下一个源（单源时呼出菜单） |
-| ↑ / ↓、频道± | 上 / 下换台 |
+| ↑ / ↓ | 下一个 / 上一个频道 |
+| 频道+ / 频道- | 下一个 / 上一个频道 |
 | 数字键 | 输入频道号换台 |
 | 红 | 全屏节目指南（EPG） |
 | 绿 | 设置 |
@@ -94,7 +98,7 @@ In the browser, M3U/EPG requests may hit CORS limits; the dev server provides a 
 | 停止 / 返回 | 回看时返回直播 |
 
 ### 构建
-需要 Node.js 18+。
+需要 Node.js 20+（推荐 Node 22，见 `.nvmrc`）。
 ```sh
 npm install
 npm test          # 单元测试

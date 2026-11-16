@@ -205,6 +205,9 @@ const DICT = {
 
     // 频道菜单
     'cm.favGroup': '★ 收藏',
+    'cm.favHint': '黄键 / INFO / MENU：收藏当前频道',
+    'cm.favEmpty': '还没有收藏。在频道列表点 ☆ 或按黄键收藏。',
+    'cm.favToggle': '收藏 / 取消收藏',
     'cm.channelHint': '节目单/回看 ›',
     'cm.srcBadge': '{n}源',
     'cm.catchup': '⟲回看',
@@ -549,6 +552,9 @@ const DICT = {
 
     // Channel Menu
     'cm.favGroup': '★ Favorites',
+    'cm.favHint': 'Yellow / INFO / MENU: favorite focused channel',
+    'cm.favEmpty': 'No favorites yet. Tap ☆ or press Yellow in the channel list.',
+    'cm.favToggle': 'Favorite / unfavorite',
     'cm.channelHint': 'EPG / Catch-up ›',
     'cm.srcBadge': '{n} src',
     'cm.catchup': '⟲Catch-up',
