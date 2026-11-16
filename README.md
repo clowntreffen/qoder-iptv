@@ -8,6 +8,14 @@ An open-source M3U / IPTV player for LG webOS TVs (webOS 5.3+, tested on webOS 6
 
 **No channels, playlists, programmes or EPG data are included.** You add your own M3U playlist and XMLTV/DIYP EPG sources. Only use content you are legally entitled to access. The app does not bypass accounts, authentication or DRM.
 
+## Changes in this fork
+- Rebranded as **Qoder IPTV** with a new textless purple/blue TV-play icon and English app description.
+- Favourites are always visible as the first group in the channel menu. Add/remove with **Yellow** while watching or in the channel list, **INFO/MENU** on remotes that have them, or by tapping the ☆/★ next to a channel.
+- Channel keys are aligned: **CH+ / D-pad UP** = next channel, **CH- / D-pad DOWN** = previous channel.
+- Source tests use a 3 s per-request / 6 s total timeout, so slow IPTV gateways are not marked dead too early.
+- Packaging targets **Node.js 20+** (`.nvmrc` = 22) and the app declares `requiredACG: []`.
+- Remote-key documentation updated for the LG C5/MR25GA Magic Remote.
+
 ## Screenshots
 | Channel menu with EPG and catch-up | Settings | Playback info bar |
 | --- | --- | --- |
@@ -64,6 +72,14 @@ In the browser, M3U/EPG requests may hit CORS limits; the dev server provides a 
 运行在 LG webOS 电视（webOS 5.3+，主要在 webOS 6 及以上测试）上的开源 M3U / IPTV 播放器，基于 Vite 与 hls.js。
 
 **本应用不包含任何频道、播放列表、节目或 EPG 数据**，M3U 与 EPG 均由用户自行添加。请只使用你有合法权利访问的内容；本应用不绕过账号、鉴权或 DRM。
+
+### 本分支改动
+- 更名为 **Qoder IPTV**，使用新的无文字紫蓝电视播放图标和英文应用简介。
+- 收藏分组始终置顶显示；直播中或频道列表按 **黄键** 收藏/取消收藏，也支持 **INFO/MENU**，并可点击频道前的 ☆/★。
+- 统一换台方向：**频道+ / 方向键上** = 下一个频道，**频道- / 方向键下** = 上一个频道。
+- 源检测超时改为单请求 3 秒 / 总 6 秒，避免慢速网关被过早判死。
+- 打包要求 **Node.js 20+**（`.nvmrc` = 22），应用声明 `requiredACG: []`。
+- 针对 LG C5/MR25GA Magic Remote 更新遥控键位说明。
 
 ### 截图
 | 频道菜单（EPG / 回看） | 设置 | 播放信息条 |
