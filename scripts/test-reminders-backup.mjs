@@ -95,6 +95,22 @@ test('backup rejects JSON from other apps, malformed data and wrong value types'
   );
 });
 
+test('backup never contains the parental PIN (plain or hashed)', () => {
+  const data = useStorage();
+  saveSettings({ aspect: '4:3', parentalPin: '1234', appLock: true });
+  const backup = createBackup();
+  assert.equal(backup.data.settings.parentalPin, undefined);
+  assert.equal(backup.data.settings.appLock, true);
+  const text = backupText();
+  assert.doesNotMatch(text, /1234/);
+  assert.match(text, /"settings":\{[^}]*"aspect":"4:3"/);
+
+  data.clear();
+  assert.equal(restoreBackup(text), 1);
+  assert.equal(getSettings().parentalPin, '', '恢复备份不写入/恢复 PIN');
+  assert.equal(getSettings().appLock, true);
+});
+
 test('due reminders are returned once and expired ones are discarded', () => {
   useStorage();
   addReminder('ch1', 1000, 'Due');

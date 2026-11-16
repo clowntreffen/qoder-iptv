@@ -4,6 +4,7 @@
 import { fetchXMLTV } from './xmltvParser.js';
 import { fetchDiypDay, diypDateStr } from './diyp.js';
 import { getEpgCache, setEpgCache } from './storage.js';
+import { redactUrl } from './util.js';
 
 const DAY_MS = 24 * 3600 * 1000;
 const CACHE_TTL = 6 * 3600 * 1000; // 6 小时
@@ -141,7 +142,7 @@ class EpgStore {
       // x-tvg-url、或用户在源里手填了接口地址，都会走到这。改按 diyp 懒加载再试，
       // 比让整个节目单空着强。
       if (!programmes.size) {
-        console.warn('[EPG] 按 XMLTV 解析不出节目，改按 DIYP 接口使用:', url);
+        console.warn('[EPG] 按 XMLTV 解析不出节目，改按 DIYP 接口使用:', redactUrl(url));
         this.mode = 'diyp';
         this.loaded = true;
         this._scheduleUpdate();

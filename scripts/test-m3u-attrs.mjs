@@ -48,6 +48,16 @@ test('legacy timeshift alias keeps day semantics and is not overridden by header
   assert.equal(channels[1].catchupDays, 5); // 频道级 timeshift 仍优先于头部天数
 });
 
+test('commas inside quoted attributes do not cut the channel name or group title', () => {
+  const { channels } = parseM3U([
+    '#EXTM3U',
+    '#EXTINF:-1 tvg-id="a" group-title="News, Sport",News & <Sport>',
+    'http://a.m3u8'
+  ].join('\n'));
+  assert.equal(channels[0].group, 'News, Sport');
+  assert.equal(channels[0].name, 'News & <Sport>');
+});
+
 test('header catchup-source backfills while channel catchup-days wins', () => {
   const { channels } = parseM3U([
     '#EXTM3U catchup-source="?utc={utc}&lutc={lutc}" catchup-days="7"',

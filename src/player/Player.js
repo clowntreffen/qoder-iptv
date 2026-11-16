@@ -3,6 +3,7 @@ import Hls from 'hls.js';
 import { proxied, resolveMediaUrl } from '../core/net.js';
 import { rememberHeaders, headersFor, applyHeaders, withHeaders } from '../core/reqHeaders.js';
 import { t } from '../core/i18n.js';
+import { redactUrl } from '../core/util.js';
 import { toHlsConfig, getTuning } from './tuning.js';
 import {
   setSegBudget,
@@ -774,7 +775,7 @@ export class Player {
       // 原生管线是 <video src>，请求由系统网络栈发出，JS 改不了头。
       // 依赖 Referer/UA 的源只能走 hls.js；这里留一行日志，免得排查时以为头生效了。
       if (headersFor(rawUrl)) {
-        try { console.log('[hdr] native path ignores headers: ' + rawUrl); } catch (e) {}
+        try { console.log('[hdr] native path ignores headers: ' + redactUrl(rawUrl)); } catch (e) {}
       }
       this._startNative(url);
     }
@@ -1094,7 +1095,7 @@ export class Player {
       this._alignNote = 'ok';
       try {
         console.log(
-          '[warm] align start ' + f.start.toFixed(2) + 's (default ' + dflt.toFixed(2) + 's) ' + f.url
+          '[warm] align start ' + f.start.toFixed(2) + 's (default ' + dflt.toFixed(2) + 's) ' + redactUrl(f.url)
         );
       } catch (e) {}
       return f.start;
@@ -1302,7 +1303,7 @@ export class Player {
     if (!rawUrl || !/\.m3u8(\?|$)/i.test(rawUrl)) {
       // 非 m3u8 地址走原生解码，没有分片概念，预热与所有 hls.js 调参都不适用
       this._warmNote('n');
-      try { console.log('[warm] skip (not m3u8) ' + rawUrl); } catch (e) {}
+      try { console.log('[warm] skip (not m3u8) ' + redactUrl(rawUrl)); } catch (e) {}
       return Promise.resolve();
     }
     if (!this._prefetched) this._prefetched = new Map();
@@ -1554,7 +1555,8 @@ export class Player {
       }
       try {
         console.log(
-          '[warm] pick ' + (from + 1) + '/' + segs.length + ' of ' + manifestUrl + ' -> ' + JSON.stringify(urls)
+          '[warm] pick ' + (from + 1) + '/' + segs.length + ' of ' + redactUrl(manifestUrl) +
+            ' -> ' + JSON.stringify(urls.map(redactUrl))
         );
       } catch (e) {}
       this._queueWarm(urls, chan);
@@ -1734,7 +1736,7 @@ export class Player {
     if (this._noteOf(job.chan) === '0') this._warmNote('r', job.chan);
     // 预热自己的超时：卡住的请求必须放弃，否则整条队列永久堵在这一片上
     const watchdog = setTimeout(() => {
-      try { console.log('[warm] timeout ' + job.url); } catch (e) {}
+      try { console.log('[warm] timeout ' + redactUrl(job.url)); } catch (e) {}
       try { if (ctl) ctl.abort(); } catch (e) {}
     }, WARM_LOAD_TIMEOUT);
     // 只在自己还是当前那一个的时候才收尾：被 _abortWarm 掐掉后，
@@ -1763,12 +1765,12 @@ export class Player {
             // 拿后续的半路数片去记会把估值抬高一倍，waitBudget 就会误判「它还剩很多」。
             if (job.slot === 0) noteWarmMs(ms);
             this._warmNote('k', job.chan); // 存进去了
-            try { console.log('[warm] stored ' + buf.byteLength + 'B ' + job.url); } catch (e) {}
+            try { console.log('[warm] stored ' + buf.byteLength + 'B ' + redactUrl(job.url)); } catch (e) {}
           } else {
             // 这一片超上限就跳过它，但同频道后面的片照旧要试：片长不均时
             // 大的那片超了不代表下一片也超，而少存一片就可能整次落空。
             if (this._noteOf(job.chan) !== 'e') this._warmNote('b', job.chan); // 超上限
-            try { console.log('[warm] skip (over cap) ' + job.url); } catch (e) {}
+            try { console.log('[warm] skip (over cap) ' + redactUrl(job.url)); } catch (e) {}
           }
           done();
         })
@@ -1824,7 +1826,7 @@ export class Player {
     checkWarmAbort(ctl, this._warmEnabled());
     if (res && res.buf) return res.buf;
     if (res && res.overCap) {
-      try { console.log('[warm] skip size >= ' + res.total + 'B > cap ' + cap + 'B ' + job.url); } catch (e) {}
+      try { console.log('[warm] skip size >= ' + res.total + 'B > cap ' + cap + 'B ' + redactUrl(job.url)); } catch (e) {}
       return null;
     }
     return this._warmWhole(job, ctl, cap);
@@ -1848,7 +1850,7 @@ export class Player {
     }
     const len = parseInt(res.headers.get('content-length') || '0', 10);
     if (len > cap) {
-      try { console.log('[warm] skip ' + len + 'B > cap ' + cap + 'B ' + job.url); } catch (e) {}
+      try { console.log('[warm] skip ' + len + 'B > cap ' + cap + 'B ' + redactUrl(job.url)); } catch (e) {}
       cancelWarmBody(res.body);
       return null;
     }

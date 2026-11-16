@@ -17,6 +17,7 @@
 // 同一个 buffer 绝不能喂给两次加载，否则第二次拿到的是空数据。
 
 import { rangeLoad, resetRangeLog } from './rangeLoad.js';
+import { redactUrl } from '../core/util.js';
 
 // 分片留多久。取值依据：直播窗口只有 6 片左右（约 22 秒），而起播对齐时
 // 超过一轮预热覆盖长度（约 11 秒）的老片会被判定「太旧不对齐」——也就是说
@@ -367,7 +368,7 @@ export function makeCachedFragLoader(Base) {
             console.log(
               '[warm] in flight ' + age + 'ms warm~' + Math.round(warmMs || WARM_MS_GUESS) +
                 ' own~' + Math.round(ownMs || OWN_MS_GUESS) + ' → ' +
-                (budgetMs ? 'wait ' + budgetMs + 'ms' : 'take over') + ' ' + context.url
+                (budgetMs ? 'wait ' + budgetMs + 'ms' : 'take over') + ' ' + redactUrl(context.url)
             );
           } catch (e) {}
           if (!budgetMs) {
@@ -389,7 +390,7 @@ export function makeCachedFragLoader(Base) {
               this._waiting = false;
               if (!waitAct) waitAct = giveUp ? 'give' : 'wait';
               if (giveUp) {
-                try { console.log('[warm] give up waiting ' + context.url); } catch (e) {}
+                try { console.log('[warm] give up waiting ' + redactUrl(context.url)); } catch (e) {}
                 // 结果已经没人要了，它再占着带宽就是纯拖累
                 if (ent.abort) { try { ent.abort(); } catch (e) {} }
               }
@@ -411,9 +412,9 @@ export function makeCachedFragLoader(Base) {
               '[warm] MISS(' +
                 missKind +
                 ') want=' +
-                (context && context.url) +
+                redactUrl(context && context.url) +
                 ' have=' +
-                JSON.stringify([...store.keys()])
+                JSON.stringify([...store.keys()].map(redactUrl))
             );
           } catch (e) {}
         }
@@ -426,7 +427,7 @@ export function makeCachedFragLoader(Base) {
       const st = this.stats;
       const now = self.performance.now();
       hits++;
-      try { console.log('[warm] HIT ' + context.url); } catch (e) {}
+      try { console.log('[warm] HIT ' + redactUrl(context.url)); } catch (e) {}
       st.loading.start = now - hit.ms; // 回填预热时的真实耗时，见 putSeg 注释
       st.loading.first = st.loading.start + 1;
       st.loading.end = now;

@@ -2,6 +2,7 @@
 import { KEY } from '../core/keys.js';
 import { getSettings, saveSettings, clearEpgCache, clearCatchupProbe } from '../core/storage.js';
 import { t, resolveLang } from '../core/i18n.js';
+import { esc } from '../core/util.js';
 
 const ASPECTS = ['16:9', '4:3', 'fill'];
 const DECODERS = ['auto', 'native', 'hls'];
@@ -112,7 +113,7 @@ export class Settings {
         const cls = 'form-row' + (i === this.focusIdx ? ' focused' : '');
         const val =
           r.type === 'select'
-            ? `<span class="value"><b class="arrow" data-role="dec">◄</b>${r.value}<b class="arrow" data-role="inc">►</b></span>`
+            ? `<span class="value"><b class="arrow" data-role="dec">◄</b>${esc(r.value)}<b class="arrow" data-role="inc">►</b></span>`
             : '';
         return `<div class="${cls}" data-role="row" data-idx="${i}"><span class="label">${r.label}</span>${val}</div>`;
       })

@@ -228,6 +228,33 @@ test('favorites group always exists and INFO toggles the focused channel', () =>
   saveFavorites([]);
 });
 
+test('playing from the favorites group passes fav zap context; normal groups pass all', () => {
+  saveFavorites([channels_key(0), channels_key(ROWS / 2)]);
+  const { el, menu, channels } = setup();
+  const modes = [];
+  menu.onPlayLive = (ch, opts) => modes.push(opts && opts.zapMode);
+  // 当前台未收藏，打开后落在普通分组；点普通频道应给 all。
+  menu.open(channels, channels[1].key);
+
+  menu._onClick({ target: { closest: () => ({ dataset: { role: 'chan', idx: '0' } }) } });
+  assert.deepEqual(modes, ['all']);
+
+  menu.open(channels, channels[1].key);
+  menu.handleKey(37); // LEFT -> 分组列
+  menu.handleKey(38); // UP -> 收藏组
+  menu.handleKey(39); // RIGHT -> 频道列
+  assert.equal(menu.groupIdx, 0);
+  assert.ok(menu.groups[0].fav);
+  menu._onClick({ target: { closest: () => ({ dataset: { role: 'chan', idx: '0' } }) } });
+  assert.deepEqual(modes, ['all', 'fav']);
+  menu.close();
+  saveFavorites([]);
+});
+
+function channels_key(i) {
+  return 'ch:' + (i < ROWS / 2 ? 'A' : 'B') + '|' + (i + 1);
+}
+
 test('tapping the star toggles a favourite without starting playback', () => {
   saveFavorites([]);
   const { el, menu, channels, played } = setup();

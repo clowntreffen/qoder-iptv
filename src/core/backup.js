@@ -16,8 +16,16 @@ function validValue(key, value) {
 export function createBackup() {
   const data = {};
   for (const key of KEYS) {
-    const value = read(key, null);
-    if (value != null) data[key] = value;
+    let value = read(key, null);
+    if (value == null) continue;
+    // 备份是用户可复制/外发的文本：不带家长 PIN（哪怕已是哈希），
+    // 恢复后沿用本机现存的 PIN 设置，不把锁屏凭据搬来搬去。
+    if (key === 'settings' && typeof value === 'object' && value !== null) {
+      const settings = { ...value };
+      delete settings.parentalPin;
+      value = settings;
+    }
+    data[key] = value;
   }
   return { app: APP, version: VERSION, exportedAt: new Date().toISOString(), data };
 }

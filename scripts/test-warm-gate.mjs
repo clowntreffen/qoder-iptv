@@ -1169,8 +1169,8 @@ test('main 只按翻台方向登记邻台，不保留跨换台的串行回调', 
     prefetch: (url) => { calls.push(url); return first.promise; }
   };
   const context = vm.createContext({
-    player, app: { current: channels[1] }, zapOrder: () => channels,
-    lastZapDir: 1, console: { log() {} }
+    player, app: { current: channels[1], zapMode: 'all' }, zapOrder: () => channels,
+    zapList: () => channels, lastZapDir: 1, console: { log() {} }
   });
   vm.runInContext(source.slice(start, end), context);
   context.schedulePrefetch();
@@ -1183,4 +1183,59 @@ test('main 只按翻台方向登记邻台，不保留跨换台的串行回调', 
   context.lastZapDir = -1;
   context.schedulePrefetch();
   assert.deepEqual(calls, ['0', '2']);
+});
+
+test('main 收藏换台只在收藏间循环，并把 zapMode 继续传给 playLive', async () => {
+  const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const start = source.indexOf('// 上一次翻台的方向');
+  const end = source.indexOf('// 切换当前频道的源', start);
+  assert.ok(start >= 0 && end > start);
+  const channels = [
+    { key: 'A0', group: 'A' },
+    { key: 'A1', group: 'A' },
+    { key: 'B2', group: 'B' }
+  ];
+  const favs = new Set(['A0', 'B2']);
+  let favVer = 1;
+  const calls = [];
+  const app = { channels, current: channels[0], zapMode: 'fav' };
+  const context = vm.createContext({
+    app,
+    isFavorite: (key) => favs.has(key),
+    favVersion: () => favVer,
+    playLive: (ch, delay, mode) => {
+      app.current = ch; // 真实 playLive 会更新当前台
+      calls.push({ key: ch.key, delay, mode });
+    },
+    showGroupHint: () => {},
+    clearTimeout() {},
+    setTimeout: () => 1,
+    $: () => ({ innerHTML: '', classList: { remove() {} } }),
+    t: (key) => key,
+    esc: (value) => value,
+    groupLabel: (value) => value
+  });
+  vm.runInContext(source.slice(start, end), context);
+
+  context.switchByOffset(1); // A0 -> B2（收藏序）
+  context.switchByOffset(1); // B2 -> A0（绕回）
+  assert.deepEqual(
+    calls.map((c) => c.key),
+    ['B2', 'A0']
+  );
+  assert.deepEqual(
+    calls.map((c) => c.mode),
+    ['fav', 'fav'],
+    '收藏上下文不能被 playLive 默认参数重置'
+  );
+
+  favs.clear();
+  favVer++;
+  app.current = channels[1];
+  app.zapMode = 'fav';
+  calls.length = 0;
+  context.switchByOffset(1); // 当前台已不是收藏 → 退回全频道
+  assert.equal(app.zapMode, 'all');
+  assert.equal(calls[0].key, 'B2');
+  assert.equal(calls[0].mode, 'all');
 });

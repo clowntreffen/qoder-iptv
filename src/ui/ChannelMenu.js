@@ -165,6 +165,11 @@ export class ChannelMenu {
     return DAY_OFFSETS[this.dayPos];
   }
 
+  // 在收藏组里选台：后续换台只在收藏间循环；其它组回到全频道。
+  _zapMode() {
+    return this._curGroup().fav ? 'fav' : 'all';
+  }
+
   _loadEpg() {
     const ch = this._curChannel();
     const off = this._curOffset();
@@ -666,7 +671,7 @@ export class ChannelMenu {
       const ch = this._curChannel();
       if (ch && this.onPlayLive) {
         this.currentKey = ch.key;
-        this.onPlayLive(ch);
+        this.onPlayLive(ch, { zapMode: this._zapMode() });
         this.close();
       }
     } else if (this.col === COL_DATE) {
@@ -682,7 +687,10 @@ export class ChannelMenu {
       const now = Date.now();
       const playing = now >= p.start && now < (isNaN(p.stop) ? p.start + 3600000 : p.stop);
       if (playing) {
-        if (this.onPlayLive) { this.onPlayLive(ch); this.close(); }
+        if (this.onPlayLive) {
+          this.onPlayLive(ch, { zapMode: this._zapMode() });
+          this.close();
+        }
       } else if (isCatchupAvailable(ch, p, ch.catchupDays || 7)) {
         if (this.onPlayCatchup) { this.onPlayCatchup(ch, p); this.close(); }
       }

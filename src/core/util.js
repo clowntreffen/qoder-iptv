@@ -94,3 +94,18 @@ export function logoHtml(ch) {
   if (!ch.logo || isLogoFailed(ch.logo)) return tile;
   return `<img src="${esc(ch.logo)}" loading="lazy" decoding="async" onerror="this.remove()" />` + tile;
 }
+
+// 日志脱敏：丢掉 query/fragment。IPTV 地址常带 token/accountinfo，
+// 这些会出现在 ares-inspect/调试控制台里。
+export function redactUrl(url) {
+  const s = String(url == null ? '' : url);
+  if (!s) return s;
+  try {
+    const u = new URL(s);
+    u.search = '';
+    u.hash = '';
+    return u.href;
+  } catch (e) {
+    return s.replace(/[?#].*$/, '');
+  }
+}

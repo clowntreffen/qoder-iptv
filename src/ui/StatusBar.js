@@ -1,5 +1,5 @@
 // 顶部状态栏：源名、频道总数、当前时间/日期、网络状态
-import { fmtClock, fmtDate } from '../core/util.js';
+import { fmtClock, fmtDate, esc } from '../core/util.js';
 import { t } from '../core/i18n.js';
 
 export class StatusBar {
@@ -19,7 +19,7 @@ export class StatusBar {
   _render() {
     const online = navigator.onLine;
     this.el.innerHTML = `
-      <div class="sb-source">${this.sourceName || t('sb.noSource')}</div>
+      <div class="sb-source">${esc(this.sourceName || t('sb.noSource'))}</div>
       <div class="sb-mid">${t('sb.channelCount', { n: this.channelCount })}</div>
       <div class="sb-right">
         <span class="sb-net ${online ? 'online' : 'offline'}">${online ? t('sb.online') : t('sb.offline')}</span>

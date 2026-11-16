@@ -11,6 +11,8 @@ import {
   getSettings,
   saveSettings,
   toggleFavorite,
+  isFavorite,
+  favVersion,
   getLastChannelKey,
   setLastChannelKey,
   getLastSourceIdx,
@@ -23,6 +25,7 @@ import { activeDeadUrls } from './core/deadUrls.js';
 import { StallWatchdog } from './core/stallWatchdog.js';
 import { takeDueReminders } from './core/reminders.js';
 import { backupText, restoreBackup } from './core/backup.js';
+import { hashPin, migratePin, verifyPin as verifyPinHash } from './core/pin.js';
 import { esc } from './core/util.js';
 import { t, setLang, getLang, groupLabel } from './core/i18n.js';
 import { Player } from './player/Player.js';
@@ -50,6 +53,7 @@ const app = {
   current: null, // 当前频道
   source: null, // 当前源
   settings: getSettings(),
+  zapMode: 'all', // 换台上下文：'all' | 'fav'（在收藏组里选台后只在收藏间换）
   numBuffer: '',
   numTimer: null
 };
@@ -105,7 +109,7 @@ function renderExitDialog() {
 
 function openExitDialog() {
   exitDialogOpen = true;
-  exitFocus = 1;
+  exitFocus = 0; // 默认「取消」，避免误触直接退出
   renderExitDialog();
   $('exit-dialog').classList.remove('hidden');
 }
@@ -285,11 +289,13 @@ function rememberPlayingSource() {
   setLastSourceIdx(ch.key, ch.sourceIdx);
 }
 
-// playLive(ch, delay)：delay>0 时先只更新 OSD/状态，延迟后才真正起流。
+// playLive(ch, delay, mode)：delay>0 时先只更新 OSD/状态，延迟后才真正起流。
 // 用于连按上下键快速翻台——中间台不会各自发起一次加载，只加载最终停留的那个台。
-function playLive(ch, delay = 0) {
+// mode 设定后续换台上下文：'all'（默认）或 'fav'（收藏组内换台）。
+function playLive(ch, delay = 0, mode = 'all') {
   if (!ch) return;
   clearTimeout(playLive._t);
+  app.zapMode = mode;
 
   // 选中的就是当前正在正常播放的频道：不重新起流，只刷新 OSD，
   // 避免在频道栏点当前台造成一次无谓的重新缓冲。
@@ -333,7 +339,7 @@ function playCatchup(ch, programme) {
 
 function returnToLive() {
   if (player.isCatchup() && app.current) {
-    playLive(app.current);
+    playLive(app.current, 0, app.zapMode);
     toast(t('toast.backToLive'));
   }
 }
@@ -346,7 +352,7 @@ function schedulePrefetch() {
 }
 
 function prefetchNeighbors() {
-  const list = zapOrder();
+  const list = zapList();
   if (!list.length || !app.current) return;
   const idx = list.findIndex((c) => c.key === app.current.key);
   if (idx < 0) return;
@@ -384,6 +390,22 @@ function zapOrder() {
   return list;
 }
 
+// 收藏换台序列：仍是频道主顺序，只筛出收藏；版本随 favVersion 失效。
+function favZapOrder() {
+  const base = zapOrder();
+  if (favZapOrder._src !== base || favZapOrder._favVer !== favVersion() || !favZapOrder._list) {
+    favZapOrder._src = base;
+    favZapOrder._favVer = favVersion();
+    favZapOrder._list = base.filter((c) => isFavorite(c.key));
+  }
+  return favZapOrder._list;
+}
+
+// 当前换台序列：收藏上下文里只在收藏间走，否则全频道。
+function zapList() {
+  return app.zapMode === 'fav' ? favZapOrder() : zapOrder();
+}
+
 // 跨分组换台时短暂提示新分组名
 function showGroupHint(name) {
   if (!name) return;
@@ -397,21 +419,30 @@ function showGroupHint(name) {
 // 按分组顺序换台（相对偏移）
 // 连按时用 350ms 防抖：翻过的中间台不起流，只加载最终停留的频道
 function switchByOffset(delta) {
-  const list = zapOrder();
+  let list = zapList();
+  // 收藏上下文失效（列表空、或当前台已不是收藏）→ 退回全频道
+  if (app.zapMode === 'fav' &&
+      (!list.length || !list.some((c) => c.key === (app.current && app.current.key)))) {
+    app.zapMode = 'all';
+    list = zapOrder();
+  }
   if (!list.length) return;
   lastZapDir = delta >= 0 ? 1 : -1; // 记下方向，预热优先热这一侧（见 prefetchNeighbors）
   let idx = list.findIndex((c) => c.key === (app.current && app.current.key));
   if (idx < 0) idx = 0;
   idx = (idx + delta + list.length) % list.length;
   const next = list[idx];
-  // 进入新分组时提示分组名
-  if (!app.current || app.current.group !== next.group) showGroupHint(next.group);
+  // 进入新分组时提示分组名（收藏上下文里不报原分组名）
+  if (app.zapMode !== 'fav' && (!app.current || app.current.group !== next.group)) {
+    showGroupHint(next.group);
+  }
   // 单次换台立即起流（零额外延迟）；仅当连按（距上次换台 <500ms）时才延迟合并，
   // 避免快速翻台时每个中间台都发起一次加载。
   const now = Date.now();
   const rapid = now - (switchByOffset._last || 0) < 500;
   switchByOffset._last = now;
-  playLive(next, rapid ? 300 : 0);
+  // 带上当前上下文：收藏换台后仍是收藏，不能被默认参数重置回全频道。
+  playLive(next, rapid ? 300 : 0, app.zapMode);
 }
 
 // 切换当前频道的源（同 tvg-id 的不同源），delta=+1/-1
@@ -497,6 +528,7 @@ async function loadSource(src, options = {}) {
   const silent = !!options.silent;
   const loadId = ++sourceLoadId;
   app.source = src;
+  app.zapMode = 'all';
   // 立即使上一个源尚未完成的 XMLTV/DIYP 请求失效，不能让旧节目单写回新源。
   if (!silent) {
     epgStore.clear();
@@ -684,11 +716,18 @@ function askPin({ title, prompt, onSubmit, onCancel }) {
 
 function verifyPin(pin) {
   const expected = app.settings.parentalPin || '';
-  return !!expected && pin === expected;
+  return !!expected && verifyPinHash(pin, expected);
+}
+
+function setHashedPin(pin) {
+  const hashed = hashPin(pin);
+  app.settings.parentalPin = hashed;
+  saveSettings({ parentalPin: hashed });
 }
 
 function changePin() {
-  askPin({
+  // 已有 PIN：先验旧 PIN，避免拿到遥控器的人直接改掉家长锁。
+  const askNew = () => askPin({
     title: t('pin.newTitle'),
     prompt: t('pin.newPrompt'),
     onSubmit: (pin) => {
@@ -701,8 +740,7 @@ function changePin() {
               toast(t('toast.pinMismatch'));
               return false;
             }
-            app.settings.parentalPin = pin;
-            saveSettings({ parentalPin: pin });
+            setHashedPin(pin);
             toast(t('toast.pinSet'));
             syncSettingsPanel();
             return true;
@@ -712,6 +750,19 @@ function changePin() {
       return true;
     }
   });
+  if (app.settings.parentalPin) {
+    askPin({
+      title: t('pin.title'),
+      prompt: t('pin.prompt'),
+      onSubmit: (pin) => {
+        if (!verifyPin(pin)) return false;
+        askNew();
+        return true;
+      }
+    });
+    return;
+  }
+  askNew();
 }
 
 function clearPin() {
@@ -816,7 +867,7 @@ function checkReminders() {
 setInterval(checkReminders, 30000);
 
 // ---- 组件回调 ----
-channelMenu.onPlayLive = playLive;
+channelMenu.onPlayLive = (ch, opts) => playLive(ch, 0, opts && opts.zapMode);
 channelMenu.onPlayCatchup = playCatchup;
 channelMenu.onOpenSettings = () => settings.open();
 channelMenu.onOpenSearch = (key) => search.open(app.channels, key);
@@ -901,7 +952,7 @@ playerTuning.onApply = () => {
   if (!app.current || player.isCatchup()) return;
   toast(t('toast.tuningApplied'));
   player.stop(); // 清掉 player.current，否则 playLive 会认为「已在播这个台」而短路
-  playLive(app.current);
+  playLive(app.current, 0, app.zapMode);
 };
 
 player.onError = (msg) => {
@@ -1064,6 +1115,8 @@ function openEpgGuide() {
 function toggleFav() {
   if (!app.current) return;
   const added = toggleFavorite(app.current.key);
+  // 收藏上下文里取消了当前台：后续换台退回全频道，避免列表里没有当前台
+  if (!added && app.zapMode === 'fav' && !isFavorite(app.current.key)) app.zapMode = 'all';
   toast(added ? t('toast.faved', { name: app.current.name }) : t('toast.unfaved'));
 }
 
@@ -1394,6 +1447,14 @@ window.addEventListener('online', () => {
 });
 function startApp() {
   const s = app.settings;
+  // 旧版把家长 PIN 明文存在 localStorage。启动时一次性迁移成 salt:hash，
+  // 之后本地只剩哈希；校验函数对残留明文仍兼容。
+  const storedPin = s ? s.parentalPin : '';
+  const migratedPin = migratePin(storedPin);
+  if (migratedPin !== storedPin) {
+    app.settings.parentalPin = migratedPin;
+    saveSettings({ parentalPin: migratedPin });
+  }
   if (s && s.appLock && s.parentalPin) {
     askPin({
       title: t('pin.lockTitle'),

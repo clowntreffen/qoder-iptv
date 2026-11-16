@@ -5,12 +5,27 @@ import { getM3uCache, setM3uCache } from './storage.js';
 
 const ATTR_RE = /([a-zA-Z0-9_-]+)="([^"]*)"/g;
 
+// #EXTINF 属性与频道名之间的逗号。引号内的逗号属于属性值
+// （group-title="News, Sport"），必须跳过，否则台名会被截断。
+function attrSeparatorIndex(line) {
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '\\' && inQuotes && i + 1 < line.length) { i++; continue; }
+    if (c === '"') inQuotes = !inQuotes;
+    else if (c === ',' && !inQuotes) return i;
+  }
+  return -1;
+}
+
 function parseAttrs(line) {
   const attrs = {};
+  ATTR_RE.lastIndex = 0; // 复用的全局正则，防止上次异常留下状态
   let m;
   while ((m = ATTR_RE.exec(line)) !== null) {
     attrs[m[1].toLowerCase()] = m[2];
   }
+  ATTR_RE.lastIndex = 0;
   return attrs;
 }
 
@@ -69,7 +84,7 @@ export function parseM3U(text, baseUrl = '') {
     if (line.startsWith('#EXTINF')) {
       const attrs = parseAttrs(line);
       // 逗号之后是频道显示名
-      const commaIdx = line.indexOf(',');
+      const commaIdx = attrSeparatorIndex(line);
       const title = commaIdx >= 0 ? line.slice(commaIdx + 1).trim() : '';
       const tvgName = attrs['tvg-name'] || '';
       // 回看天数：频道级 catchup-days > tvg-rec > timeshift（旧别名，兼容存量源）> 头部默认。

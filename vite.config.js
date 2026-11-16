@@ -107,7 +107,8 @@ function devProxy() {
         const mod = targetUrl.protocol === 'https:' ? https : http;
         const options = {
           method: 'GET',
-          rejectUnauthorized: false,
+          // 自签证书的 IPTV 网关需要显式开：VITE_PROXY_ALLOW_SELF_SIGNED=1
+          rejectUnauthorized: process.env.VITE_PROXY_ALLOW_SELF_SIGNED === '1',
           headers: {
             'User-Agent': UA,
             Accept: '*/*',
@@ -277,7 +278,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true
+    // 默认只监听回环：/__proxy__ 是任意 URL 转发口，不能默认暴露到局域网。
+    // 需要从电视/手机访问开发预览时显式设置 VITE_DEV_HOST=0.0.0.0。
+    host: process.env.VITE_DEV_HOST || '127.0.0.1'
   },
   plugins: [webosAssets(), devProxy(), classicScript()]
 });
