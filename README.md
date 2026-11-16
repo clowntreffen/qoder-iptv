@@ -7,8 +7,8 @@ An open-source M3U / IPTV player for LG webOS TVs (webOS 5.3+, tested on webOS 6
 **No channels, playlists, programmes or EPG data are included.** You add your own M3U playlist and XMLTV/DIYP EPG sources. Only use content you are legally entitled to access. The app does not bypass accounts, authentication or DRM.
 
 ## Download this fork
-[com.qoder.iptv_1.1.61_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.61/com.qoder.iptv_1.1.61_all.ipk) — built from this fork, not from upstream.  
-SHA256: `d774baee8050b739bb1ef373e51df3f8fd418f5330e68e83f73a7f15dec31891`
+[com.qoder.iptv_1.1.62_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.62/com.qoder.iptv_1.1.62_all.ipk) — built from this fork, not from upstream.  
+SHA256: `8cc9a87f562f82c7b829a2f8d03cddbc9235317b3d8b8cf07aeb6fbe963449b3`
 
 Install with LG webOS dev mode / Glasshouse. No playlists, channels or EPG data are included.
 

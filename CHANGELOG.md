@@ -2,6 +2,15 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.62
+- Fixed channel zapping inside the favourites group: CH+/CH- now stays among favourites until a non-favourite is selected, and rapid zapping keeps that context.
+- Parental PIN is now stored as a salted SHA-256 hash (legacy plaintext PINs migrate on startup); changing an existing PIN requires the old PIN, and backups no longer contain it.
+- Fixed M3U parsing when quoted attributes contain commas (`group-title="News, Sport"`).
+- Escaped Settings values and the StatusBar source name to prevent HTML injection from malicious playlist names.
+- Removed URL query/fragment credentials from console logs.
+- Dev server now binds to `127.0.0.1` by default; self-signed upstream certificates require `VITE_PROXY_ALLOW_SELF_SIGNED=1`.
+- Exit confirmation defaults to "Cancel" so a stray OK press cannot close the app.
+
 ## 1.1.61
 - Added a runtime stall watchdog: playback that stops advancing without an error automatically switches to the next source after 15 seconds.
 - Dead source URLs discovered by the source test now expire after 12 hours instead of staying blacklisted forever.
