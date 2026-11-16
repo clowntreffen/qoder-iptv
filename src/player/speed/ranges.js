@@ -1,5 +1,5 @@
-// 自己拼的 TimeRanges：倍速时 buffered/seekable 要换算成内容时间，原生对象只读改不了。
-// hls.js 只用 length / start(i) / end(i)，够用。
+
+
 
 export function makeRanges(list) {
   const arr = list.slice();
@@ -29,7 +29,7 @@ export function scaleRanges(tr, k) {
   return makeRanges(out);
 }
 
-/** 并入 [s,e]；相邻缝隙不超过 tol 的视为连续（真 SourceBuffer 也会把相邻编码帧合成一段） */
+
 export function addRange(list, s, e, tol = 0) {
   if (!(e > s)) return list.slice();
   const out = [];

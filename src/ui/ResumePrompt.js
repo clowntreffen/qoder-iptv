@@ -1,4 +1,4 @@
-// 回看续播提示：断点续看位置（秒）落盘后，下次点同一节目先问「继续 / 从头 / 取消」。
+
 import { KEY } from '../core/keys.js';
 import { esc } from '../core/util.js';
 import { t } from '../core/i18n.js';

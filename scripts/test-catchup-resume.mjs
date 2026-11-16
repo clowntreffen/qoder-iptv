@@ -1,5 +1,5 @@
 // Run: node --test scripts/test-catchup-resume.mjs
-// 回看断点续播：位置持久化（内存 localStorage）+ 续播提示的焦点/回调行为。
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -41,7 +41,7 @@ class FakeEl {
   querySelectorAll() { return []; }
 }
 
-// ---- 持久化 ----
+
 
 test('resume position: default 0, set/get/remove', () => {
   assert.equal(getResumePosition('ch1'), 0);
@@ -77,7 +77,7 @@ test('resume position: corrupt storage falls back to 0', () => {
   assert.equal(getResumePosition('ch1'), 0);
 });
 
-// ---- 提示行为 ----
+
 
 function focusedAction(html) {
   const m = html.match(/data-action="([^"]+)"[^>]*class="[^"]*focused/);

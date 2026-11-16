@@ -19,7 +19,7 @@
   --ui-shadow: 0 20px 64px rgba(0, 0, 0, 0.5);
 }
 
-/* ===== 基础 / 10-foot UI ===== */
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
 body {
@@ -32,21 +32,21 @@ body {
 }
 #app { position: fixed; top: 0; left: 0; width: 1920px; height: 1080px; transform-origin: top left; }
 .hidden { display: none !important; }
-/* 鼠标：可点击项 */
+
 .cm-group-item, .cm-channel-item, .cm-date-item, .cm-epg-item, .cm-settings, .eg-day, .eg-chan, .eg-prog,
 .form-row, .btn, .panel-close, .form-row .arrow, .row-del, .row-test, .row-edit { cursor: pointer; }
 
-/* ===== 播放层 ===== */
+
 #player-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #000; }
 #video { width: 100%; height: 100%; object-fit: contain; background: #000; }
 #video.aspect-fill { object-fit: fill; }
 #video.aspect-43 { object-fit: contain; width: 1440px; margin: 0 240px; }
 
-/* ===== 加载动画 ===== */
+
 .loading {
   position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,0.35); z-index: 60;
-  /* 纯提示层，不能拦截鼠标：转圈时仍可点击下面的频道/菜单等 */
+  
   pointer-events: none;
 }
 .spinner {
@@ -56,14 +56,14 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ===== toast ===== */
+
 .toast {
   position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%);
   background: var(--ui-glass); color: var(--ui-text); padding: 20px 36px; border: 1px solid var(--ui-line); border-radius: 18px;
   font-size: 28px; line-height: 1.5; z-index: 80; max-width: 1200px; text-align: center; box-shadow: var(--ui-shadow);
 }
 
-/* ===== 顶部状态栏 ===== */
+
 .status-bar {
   position: absolute; top: 0; left: 0; right: 0; height: 88px; z-index: 40;
   display: flex; align-items: center; padding: 0 48px;
@@ -76,7 +76,7 @@ body {
 .status-bar .sb-net.online { color: var(--ui-green); }
 .status-bar .sb-net.offline { color: var(--ui-red); }
 
-/* ===== 换台 OSD ===== */
+
 .osd {
   position: absolute; left: 48px; right: 48px; bottom: 60px; z-index: 45;
   display: flex; align-items: center;  background: var(--ui-glass); border: 1px solid var(--ui-line); border-radius: 24px; padding: 26px 36px;
@@ -95,7 +95,7 @@ body {
 .osd .osd-info { flex: 1; min-width: 0; }
 .osd .osd-name { font-size: 40px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; min-width: 0; }
 .osd .osd-cname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 画质/音频标签（分辨率、音频编码），信息未到时不占位 */
+
 .osd .osd-fmt { display: flex; align-items: center; flex-shrink: 0; }
 .osd .osd-tag {
   font-size: 20px; font-weight: 600; line-height: 1.2; padding: 6px 12px; border-radius: 8px;
@@ -114,7 +114,7 @@ body {
 .osd .osd-progress > i { display: block; height: 100%; background: var(--ui-accent); }
 .osd .osd-badge { font-size: 22px; padding: 8px 16px; border-radius: 10px; background: rgba(242,209,139,0.12); border: 1px solid rgba(242,209,139,0.3); color: #f2d18b; }
 
-/* ===== 跨分组换台提示（浮在 OSD 上方，避免与之重叠） ===== */
+
 .group-hint {
   position: absolute; left: 48px; bottom: 320px; z-index: 46;
   display: flex; align-items: center;  max-width: 1000px; background: var(--ui-glass); border: 1px solid var(--ui-line); border-left: 4px solid var(--ui-accent); border-radius: 14px;
@@ -124,7 +124,7 @@ body {
 }
 .group-hint .gh-label { font-size: 26px; color: var(--ui-muted); font-weight: 500; }
 
-/* ===== 回看控制条：进度条 ===== */
+
 .catchup-bar {
   position: absolute; left: 60px; right: 60px; bottom: 56px; z-index: 46;
   background: var(--ui-glass); border: 1px solid var(--ui-line); border-radius: 24px; padding: 26px 36px 28px;
@@ -156,9 +156,9 @@ body {
 }
 .catchup-bar .cb-progress-row.focused .cb-bar { height: 16px; }
 .catchup-bar .cb-progress-row.focused .cb-knob { width: 32px; height: 32px; }
-/* 长按快进中：当前时间高亮，提示尚未提交的预览位置 */
+
 .catchup-bar .cb-cur.seeking { color: #ffcc44; }
-/* 倍速行 */
+
 .catchup-bar .cb-speed-row {
   display: flex; align-items: center; padding: 10px 14px; border-radius: 12px; margin-top: 10px;
 }
@@ -172,7 +172,7 @@ body {
 .catchup-bar .cb-rate:hover { background: rgba(180,184,255,0.2); }
 .catchup-bar .cb-rate.on { color: #fff; background: var(--ui-focus); border-color: #c8cbff; }
 .catchup-bar .cb-speed-row.focused .cb-rate.on { background: var(--ui-focus-fill); }
-/* 已选但还没按新倍率起播（防抖/重载中） */
+
 .catchup-bar .cb-rate.on.pending { border-style: dashed; background: rgba(180,184,255,0.2); }
 .catchup-bar .cb-note {
   flex: 1; min-width: 0; text-align: right; font-size: 22px; color: var(--ui-muted);
@@ -180,7 +180,7 @@ body {
 }
 .catchup-bar .cb-note.warn { color: #ff9e64; }
 
-/* ===== 回看倍速角标（控制条收起后常驻） ===== */
+
 .speed-badge {
   position: absolute; top: 110px; right: 60px; z-index: 46;
   background: rgba(17,24,46,0.9); border: 1px solid rgba(180,188,255,0.4); border-radius: 14px;
@@ -189,8 +189,8 @@ body {
   zoom: var(--ui-zoom, 1);
 }
 
-/* ===== 右下角网速 ===== */
-/* 贴在 OSD/回看条（bottom:56~60px）下方，两者同时显示也不遮挡 */
+
+
 .net-speed {
   position: absolute; right: 60px; bottom: 12px; z-index: 47;
   background: rgba(17,24,46,0.84); border: 1px solid var(--ui-line); border-radius: 10px;
@@ -199,25 +199,25 @@ body {
   text-align: right;
   zoom: var(--ui-zoom, 1);
 }
-/* 起播耗时分解（临时诊断）：比主行小、暗一档 */
+
 .net-speed .net-phase { font-size: 18px; font-weight: 500; color: var(--ui-muted); margin-top: 2px; }
-/* 预热未命中归因（临时诊断）：跟分解行同样大小，换个警示色区分开 */
+
 .net-speed .net-warm { font-size: 18px; font-weight: 600; color: #d8a24a; margin-top: 2px; }
 
-/* ===== 数字换台缓冲 ===== */
+
 .channel-input {
   position: absolute; top: 120px; right: 60px; z-index: 55;
   background: var(--ui-glass); border: 2px solid rgba(180,188,255,0.65); border-radius: 22px;
   padding: 18px 36px; font-size: 80px; font-weight: 600; letter-spacing: 6px; color: var(--ui-accent); box-shadow: var(--ui-shadow);
 }
 
-/* ===== 通用浮层 ===== */
-/* 字号 zoom 不能扩大固定 1920×1080 的浮层边界。 */
+
+
 .overlay { position: absolute; top: 0; left: 0; width: calc(1920px / var(--ui-zoom, 1)); height: calc(1080px / var(--ui-zoom, 1)); z-index: 50; zoom: var(--ui-zoom, 1); }
 #settings, #source-manager, #group-manager, #player-tuning, #device-info { background: var(--ui-scrim); }
 .osd, .channel-input, .toast { zoom: var(--ui-zoom, 1); }
 
-/* ===== 退出确认对话框 ===== */
+
 #exit-dialog { z-index: 70; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; }
 .exit-box {
   width: 800px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 28px; padding: 56px 48px;
@@ -235,7 +235,7 @@ body {
 .exit-btn.focused:hover { background: var(--ui-focus-fill); }
 .exit-btn.danger.focused { background: #a64150; color: #fff; box-shadow: inset 0 0 0 2px #ffb4bb; }
 
-/* ===== 回看续播提示 ===== */
+
 #resume-prompt { z-index: 70; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; }
 .resume-box {
   width: 880px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 28px; padding: 56px 48px;
@@ -247,7 +247,7 @@ body {
 .resume-btns > * + * { margin-left: 28px; }
 .resume-btns .exit-btn { min-width: 240px; }
 
-/* ===== 四栏频道菜单 ===== */
+
 #channel-menu {
   display: flex; padding: 32px;
   background: linear-gradient(to right, rgba(5,9,22,0.94) 0%, rgba(5,9,22,0.82) 55%, rgba(5,9,22,0.3) 100%);
@@ -263,8 +263,8 @@ body {
 #cm-chan-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cm-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0 12px 16px; }
 .cm-list::-webkit-scrollbar { width: 0; }
-/* 频道列虚拟化：窗口外行用伪元素占位（不能走容器 padding——border-box 下大 padding
-   会把定高撑破，flex 约束直接失效），CSS 变量由 ChannelMenu.js 按窗口位置写入 */
+
+
 #cm-chan-list { overflow-anchor: none; }
 #cm-chan-list::before { content: ''; display: block; height: var(--sp-top, 0px); }
 #cm-chan-list::after { content: ''; display: block; height: var(--sp-bottom, 0px); }
@@ -288,7 +288,7 @@ body {
 .cm-group-item.active { color: var(--ui-accent); background: var(--ui-accent-soft); }
 .cm-group-item.focused.active { background: var(--ui-focus-fill); color: #fff; }
 
-/* 分组栏左下角「设置」入口 */
+
 .cm-settings {
   flex-shrink: 0; margin: 12px; padding: 20px; border: 1px solid var(--ui-line); border-radius: 14px;
   font-size: 28px; color: #cbd2df; display: flex; align-items: center;  background: rgba(255,255,255,0.03);
@@ -304,7 +304,7 @@ body {
 
 .cm-channel-item {
   display: flex; align-items: center; padding: 14px 18px; border-radius: 14px;
-  /* 定高：频道列虚拟化按 100px/行计算占位与窗口（见 ChannelMenu.js CHAN_ROW_H），改高需两处同步 */
+  
   height: 100px; flex-shrink: 0;
 }
 .cm-channel-item .num { width: 60px; flex-shrink: 0; font-size: 28px; font-weight: 500; color: var(--ui-muted); text-align: right; font-variant-numeric: tabular-nums; }
@@ -319,7 +319,7 @@ body {
 .cm-channel-item .logo .w-m { font-size: 20px; }
 .cm-channel-item .logo .w-l { font-size: 17px; }
 
-/* 文字台标：铺满台标框；前面还有 <img> 时隐藏，图片加载失败自删后露出 */
+
 .logo-txt {
   flex: 1; align-self: stretch; display: flex; align-items: center; justify-content: center;
   border-radius: inherit; color: #eef1ff; font-weight: 700; letter-spacing: -0.5px;
@@ -338,19 +338,19 @@ img + .logo-txt { display: none; }
 .cm-channel-item .fav { color: #ffb300; font-size: 30px; cursor: pointer; padding: 0 6px 0 0; opacity: 0.55; }
 .cm-channel-item .fav.on, .cm-channel-item.focused .fav, .cm-channel-item:hover .fav { opacity: 1; }
 .cm-channel-item .src-badge { display: inline-block; font-size: 20px; color: var(--ui-accent); border: 1px solid var(--ui-accent); border-radius: 6px; padding: 0 8px; margin-left: 6px; vertical-align: middle; }
-/* 单频道隐藏后台菜单仍列出（可再编辑回来），半透明 + 标记区分 */
+
 .cm-channel-item.hidden-entry { opacity: 0.48; }
 .cm-channel-item.focused.hidden-entry, .cm-channel-item.hidden-entry:hover { opacity: 1; }
 .cm-channel-item .hidden-badge { display: inline-block; font-size: 19px; color: #ffb3b3; border: 1px solid rgba(255,120,120,0.7); border-radius: 6px; padding: 0 8px; margin-left: 6px; vertical-align: middle; }
 
-/* 频道自定义编辑器 */
+
 #channel-editor .panel { width: 1100px; }
 #channel-editor .ce-input-row { padding: 0 24px 20px; }
 #channel-editor .ce-input-row input { width: 100%; box-sizing: border-box; font-size: 30px; }
 .cm-channel-item.focused { background: var(--ui-focus-fill); box-shadow: inset 0 0 0 2px #c8cbff; }
 .cm-channel-item.focused .num, .cm-channel-item.focused .now { color: #eaf4ff; }
-/* 「节目单/回看 ›」入口：遥控焦点行常显；鼠标 hover 任意行也显示，点它展开日期+节目单栏
-   （点整行是直接播直播，两者要分得开，所以做成独立小按钮而不是整行响应）*/
+
+
 .cm-chan-hint {
   display: none; flex-shrink: 0; font-size: 20px; font-weight: 500; white-space: nowrap;
   color: #f0f1ff; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.22); border-radius: 9px; background: rgba(255,255,255,0.07);
@@ -371,7 +371,7 @@ img + .logo-txt { display: none; }
 .cm-epg-item.focused { background: var(--ui-focus-fill); box-shadow: inset 0 0 0 2px #c8cbff; }
 .cm-epg-item.focused .t, .cm-epg-item.focused .p, .cm-epg-item.focused .catchup { color: #fff; }
 
-/* ===== 全屏 EPG 指南 ===== */
+
 #epg-guide { background: linear-gradient(160deg, #121b36, #090e1f); display: flex; flex-direction: column; }
 .eg-head { flex-shrink: 0; display: flex; align-items: center; padding: 32px; }
 .eg-head .eg-title { flex-shrink: 0; font-size: 36px; font-weight: 600; padding-left: 20px; border-left: 4px solid var(--ui-accent); }
@@ -393,16 +393,16 @@ img + .logo-txt { display: none; }
 .eg-prog.focused { background: var(--ui-focus-fill); box-shadow: inset 0 0 0 2px #c8cbff; color: #fff; }
 .eg-prog.focused .t, .eg-prog.focused .catchup { color: #fff; }
 
-/* ===== 设置 / 源管理 通用 ===== */
+
 .panel {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
   width: 1360px; max-height: calc(960px / var(--ui-zoom, 1)); background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 28px;
   padding: 40px; box-shadow: var(--ui-shadow);
   display: flex; flex-direction: column;
 }
-/* 源管理面板固定高度：高度随内容自适应时，源少时列表只有一行，
-   flex:1 拿不到剩余空间。固定后「已保存的源」占满输入区以下的全部空间。
-   输入区/提示同步收紧间距，把高度让给源列表（约 5 行可见，再多列表内滚动）。 */
+
+
+
 #source-manager .panel { height: 1000px; max-height: calc(1000px / var(--ui-zoom, 1)); padding: 36px 40px; }
 #source-manager .form-row { padding: 12px 24px; }
 #source-manager .src-list .value { flex: 0 1 420px; font-size: 23px; }
@@ -413,7 +413,7 @@ img + .logo-txt { display: none; }
 #source-manager [data-role="cancel-edit"] { display: inline-block; vertical-align: middle; }
 #source-manager .src-input-hint { min-height: 48px; font-size: 22px; }
 #source-manager .btn-row { margin-top: 16px; }
-/* 源列表：源多了单独滚动，表头/输入框/关闭按钮保持固定不被挤出屏幕（单位用 px，因为 #app 是 1920×1080 缩放坐标系，vh/vw 会指向真实屏幕而错位） */
+
 .src-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 .src-list::-webkit-scrollbar, .di-body::-webkit-scrollbar, .tune-desc::-webkit-scrollbar, .eg-chan-col::-webkit-scrollbar, .eg-prog-col::-webkit-scrollbar { width: 6px; }
 .src-list::-webkit-scrollbar-thumb, .di-body::-webkit-scrollbar-thumb, .tune-desc::-webkit-scrollbar-thumb, .eg-chan-col::-webkit-scrollbar-thumb, .eg-prog-col::-webkit-scrollbar-thumb { background: #3c4a74; border-radius: 6px; }
@@ -422,7 +422,7 @@ img + .logo-txt { display: none; }
 #source-manager .panel h2:not(:first-of-type) { border: 0; padding-left: 0; color: var(--ui-muted); letter-spacing: 0; }
 #source-manager .panel h2:first-of-type { margin-bottom: 14px; }
 .src-input-hint { flex-shrink: 0; font-size: 24px; line-height: 1.5; min-height: 72px; color: #7fd6ff; }
-/* 面板右上角关闭按钮（鼠标用户没有返回键） */
+
 .panel-close {
   position: absolute; top: 28px; right: 28px; width: 52px; height: 52px;
   display: flex; align-items: center; justify-content: center;
@@ -436,7 +436,7 @@ img + .logo-txt { display: none; }
 .form-row.focused .label, .form-row.focused .value { color: #fff; }
 .form-row .value.off { color: var(--ui-muted); }
 .form-row.focused .value.off { color: #e6eaf0; }
-/* 鼠标悬停反馈（不改键盘焦点，避免高亮跳动） */
+
 .form-row:hover { background: rgba(180,184,255,0.2); }
 .form-row.focused:hover { background: var(--ui-focus-fill); }
 .form-row .arrow { display: inline-block; padding: 0 16px; font-weight: 700; }
@@ -469,24 +469,24 @@ img + .logo-txt { display: none; }
 .hint { flex-shrink: 0; font-size: 22px; color: var(--ui-muted); margin-top: 20px; line-height: 1.6; }
 #group-manager .panel > .hint:first-of-type { margin: 0 0 20px; }
 
-/* ===== 设备信息面板 ===== */
-/* 这个面板的行数是浮动的：取 MAC / 取系统信息失败时会多出错误行，展开「原始返回」
-   还会追加整段探测日志。行一多就把按钮行和提示顶到 1080 之外——按钮看不见就等于
-   按不到，面板也就没用了。
-   所以只让中间的信息区滚动，标题 / 按钮行 / 提示固定不动。
-   上下键滚这块区域（见 DeviceInfo.handleKey），电视上没有滚轮，不给键就滚不动。 */
+
+
+
+
+
+
 #device-info .panel { max-height: calc(1000px / var(--ui-zoom, 1)); padding: 36px 40px; }
 #device-info .panel h2 { margin-bottom: 18px; }
 #device-info .di-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
-/* 信息行比设置菜单里的行更密：这里是一屏只读参数，不是逐行操作的菜单，
-   不需要那么大的行高，压紧后常见情况（不展开日志）能一屏放完不用滚。 */
+
+
 #device-info .di-body .form-row { padding: 12px 24px; font-size: 27px; cursor: default; }
 #device-info .di-body .form-row:nth-child(even) { background: rgba(255,255,255,0.025); }
 #device-info .di-body .label { flex: 0 0 340px; color: var(--ui-muted); }
 #device-info .di-body .value { flex: 1; max-width: none; white-space: normal; word-break: break-word; color: var(--ui-text); }
 #device-info .di-body .form-row:hover { background: transparent; }
 #device-info .di-body .form-row:nth-child(even):hover { background: rgba(255,255,255,0.025); }
-/* 长说明独立滚动，不能把参数列表和底部按钮挤出电视画面。 */
+
 .tune-desc { height: 112px; flex: 0 0 112px; overflow-y: auto; color: #b9c2cc; }
 .tune-warm-status { flex-shrink: 0; color: #4fd08a; }
 .btn-row { flex-shrink: 0; display: flex; margin-top: 24px; }
@@ -494,7 +494,7 @@ img + .logo-txt { display: none; }
 .btn.focused { background: var(--ui-focus-fill); box-shadow: inset 0 0 0 2px #c8cbff; }
 .btn:hover { background: var(--ui-accent-soft); }
 .btn.focused:hover { background: var(--ui-focus-fill); }
-/* Chrome 79 的 flex 间距使用相邻外边距。 */
+
 .status-bar > * + *, .osd > * + *, .eg-head > * + * { margin-left: 32px; }
 .status-bar .sb-right > * + *, .exit-btns > * + * { margin-left: 28px; }
 .cb-progress-row > * + *, .cb-speed-row > * + *, .eg-prog > * + * { margin-left: 24px; }
@@ -508,7 +508,7 @@ img + .logo-txt { display: none; }
   text-align: center; font-size: 40px; color: #b9c2cc; line-height: 1.8;
 }
 
-/* ===== 频道搜索 ===== */
+
 #search { background: var(--ui-scrim); }
 .search-panel { width: 1180px; height: 900px; max-height: calc(980px / var(--ui-zoom, 1)); padding: 36px 40px; }
 .search-input {
@@ -528,7 +528,7 @@ img + .logo-txt { display: none; }
 .search-row.focused { background: var(--ui-focus-fill); box-shadow: inset 0 0 0 2px #c8cbff; }
 .search-row.focused .num, .search-row.focused .group, .search-row.focused .now { color: #eef1ff; }
 
-/* ===== PIN 输入 ===== */
+
 #pin-entry { z-index: 66; background: rgba(0,0,0,0.72); display: flex; align-items: center; justify-content: center; }
 .pin-box { width: 640px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 28px; padding: 44px 48px; box-shadow: var(--ui-shadow); text-align: center; }
 .pin-title { font-size: 38px; font-weight: 600; margin-bottom: 10px; }
@@ -545,7 +545,7 @@ img + .logo-txt { display: none; }
 .pin-actions > * + * { margin-left: 20px; }
 .pin-actions .exit-btn { min-width: 180px; }
 
-/* ===== 备份 / 恢复 ===== */
+
 #backup-dialog { z-index: 64; background: var(--ui-scrim); }
 .backup-panel { width: 1240px; height: 900px; max-height: calc(980px / var(--ui-zoom, 1)); }
 .backup-json {
@@ -557,7 +557,7 @@ img + .logo-txt { display: none; }
 .backup-actions { flex-shrink: 0; display: flex; margin-top: 20px; }
 .backup-actions > * + * { margin-left: 18px; }
 
-/* ===== EPG 详情 / 提醒 ===== */
+
 .eg-body { padding-bottom: 12px; }
 .eg-detail {
   flex-shrink: 0; margin: 0 32px 26px; padding: 18px 26px; border: 1px solid var(--ui-line);

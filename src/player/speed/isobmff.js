@@ -1,7 +1,7 @@
-// 倍速引擎用到的那一小撮 MP4（ISO BMFF）读写。
-// hls.js 不管片源是 TS 还是 fMP4，喂给 SourceBuffer 的都是 fMP4：
-//   init 段 = ftyp + moov，媒体段 = moof + mdat。
-// 这里只做三件事：改视频 init 的时间刻度、读音频 init 的解码参数、把音频媒体段拆成一帧帧。
+
+
+
+
 
 const CONTAINERS = { moov: 1, trak: 1, mdia: 1, minf: 1, stbl: 1, mvex: 1, moof: 1, traf: 1, edts: 1, dinf: 1 };
 
@@ -26,7 +26,7 @@ export function toU8(data) {
   return new Uint8Array(data);
 }
 
-/** 平铺读一层 box。size 越界就停：残缺的尾巴交给调用方决定要不要留到下一次 append */
+
 export function readBoxes(u8, start = 0, end = u8.length) {
   const out = [];
   let p = start;
@@ -58,7 +58,7 @@ function children(u8, box, type) {
   return readBoxes(u8, box.data, box.end).filter((b) => b.type === type);
 }
 
-/** 按路径找 box，例如 ['moov','trak','mdia']；每一层都可能有多个，全收 */
+
 function findPath(u8, boxes, path) {
   let cur = boxes;
   for (let i = 0; i < path.length; i++) {
@@ -89,13 +89,13 @@ function mdhdTimescalePos(u8, mdhd) {
   return mdhd.data + (v === 1 ? 20 : 12);
 }
 
-/**
- * 把视频轨 mdhd 的 timescale 乘以 speed。
- * 媒体段里的 tfdt、样本时长、合成偏移都是「刻度数」，刻度变密，
- * 同样的刻度数折成秒就变短——解码器照常按 1× 走，画面就快了 speed 倍。
- * 必须在副本上改：hls.js 会缓存 init 段，切档时原样再 append 一次，原地改会被乘两遍。
- * @returns {{data:Uint8Array, scale:number}|null} scale = 实际生效倍率；null = 没找到视频轨
- */
+
+
+
+
+
+
+
 export function rewriteVideoInit(input, speed) {
   const src = toU8(input);
   const out = src.slice();
@@ -119,11 +119,11 @@ export function rewriteVideoInit(input, speed) {
   return scale ? { data: out, scale } : null;
 }
 
-/* ---------------- 音频 init ---------------- */
+
 
 const SAMPLE_RATES = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
 
-/** MPEG-4 描述符长度：每字节 7 位，最高位为 1 表示后面还有 */
+
 function descLen(u8, p) {
   let len = 0;
   let n = 0;
@@ -160,7 +160,7 @@ function parseEsds(u8, esds) {
   return { oti, asc };
 }
 
-/** AudioSpecificConfig 前几位：对象类型、采样率、声道 */
+
 export function parseAsc(asc) {
   if (!asc || asc.length < 2) return null;
   let bit = 0;
@@ -177,11 +177,11 @@ export function parseAsc(asc) {
   return { aot, sfi, sampleRate, chanCfg };
 }
 
-/**
- * 读音频 init 段，拿解码器要的参数。
- * 认 AAC 和 MPEG 音频（codec = 'mpeg'，自带 MP2 解码）；AC-3/E-AC-3 这类杜比音轨浏览器侧解不了，
- * codec 留空，调用方据此回退 1×。
- */
+
+
+
+
+
 export function parseAudioInit(input) {
   const u8 = toU8(input);
   const top = readBoxes(u8);
@@ -205,13 +205,13 @@ export function parseAudioInit(input) {
         info.trex = { duration: u32(u8, t.data + 12), size: u32(u8, t.data + 16) };
       }
     }
-    if (entry.type !== 'mp4a' && entry.type !== '.mp3') return info; // ac-3 / ec-3 / Opus ...：不支持，codec 留空
+    if (entry.type !== 'mp4a' && entry.type !== '.mp3') return info; 
     // AudioSampleEntry：reserved 6 + dref 2 + version 2 + revision 2 + vendor 4 + channels 2 + bits 2 + ... + rate 4
     const base = entry.data;
     const ver = (u8[base + 8] << 8) | u8[base + 9];
     info.channels = (u8[base + 16] << 8) | u8[base + 17];
     info.sampleRate = u32(u8, base + 24) >>> 16;
-    // hls.js 遇到 TS 里的 MPEG 音频、又不能直接建 audio/mpeg 时，会封成 '.mp3' 样本项
+    
     if (entry.type === '.mp3') {
       info.codec = 'mpeg';
       return info;
@@ -219,7 +219,7 @@ export function parseAudioInit(input) {
     const childStart = base + 28 + (ver === 1 ? 16 : ver === 2 ? 36 : 0);
     const esds = readBoxes(u8, childStart, entry.end).find((b) => b.type === 'esds');
     const es = esds && parseEsds(u8, esds);
-    // 0x6B = MPEG-1 音频，0x69 = MPEG-2 音频（Layer 在帧头里，解码时再挑）
+    
     if (es && (es.oti === 0x6b || es.oti === 0x69)) {
       info.codec = 'mpeg';
       return info;
@@ -239,13 +239,13 @@ export function parseAudioInit(input) {
   return null;
 }
 
-/* ---------------- 音频媒体段 ---------------- */
 
-/**
- * 把 moof+mdat 拆成样本。
- * @returns {{samples:Array<{t:number,d:number,data:Uint8Array}>, rest:Uint8Array|null}}
- *   t/d 单位是轨道刻度；rest = 末尾只来了 moof、mdat 还没到的那截，留给下一次 append 拼上
- */
+
+
+
+
+
+
 export function parseFragments(input, track) {
   const u8 = toU8(input);
   const boxes = readBoxes(u8);
@@ -263,7 +263,7 @@ export function parseFragments(input, track) {
     consumed = mdat.end;
     i++;
   }
-  // 数据在 box 中间被截断（readBoxes 停在半个 box 上）也算没吃完
+  
   const rest = consumed < u8.length ? u8.slice(consumed) : null;
   return { samples, rest };
 }
@@ -330,10 +330,10 @@ function readTraf(u8, moof, traf, track, out) {
   }
 }
 
-/** 给裸 AAC 帧补 7 字节 ADTS 头：没有 WebCodecs 时靠 decodeAudioData 解 */
+
 export function adtsHeader(info, frameLen) {
   const len = frameLen + 7;
-  // ADTS 只能写 LC 等基础档；HE-AAC 交给解码器隐式识别 SBR
+  
   const profile = Math.max(0, Math.min(3, (info.aot === 5 || info.aot === 29 ? 2 : info.aot || 2) - 1));
   const sfi = info.sfi != null ? info.sfi : Math.max(0, SAMPLE_RATES.indexOf(info.sampleRate));
   const ch = info.chanCfg || info.channels || 2;

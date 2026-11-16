@@ -1,5 +1,5 @@
 // Run: node --test scripts/test-log-redaction.mjs
-// 控制台日志不得带 IPTV token/accountinfo：redactUrl 只保留协议、主机和路径。
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { redactUrl } from '../src/core/util.js';

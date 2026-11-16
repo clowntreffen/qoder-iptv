@@ -1,12 +1,12 @@
-// 单元测试：倍速引擎里的纯计算部分（移植自 YSC，加了回看要用的 MP2）
+
 //
-// 真机上出问题很难查，能在 node 里守住的先守住：
-//   1. 改视频 init 刻度：只改视频轨、不碰原数据（hls.js 会把缓存的 init 再 append 一遍）
-//   2. 音频 init / 分片解析：解码参数和每帧时间对得上
-//   3. WSOLA：输出长度 = 输入 / 倍速，音调不变
-//   4. 假 SourceBuffer：事件顺序和 buffered 跟真的一样，hls.js 的队列才推得动；
-//      裸 audio/mpeg 按 sequence 模式顺延 timestampOffset
-//   5. MP2 解码：和 ffmpeg 的输出对齐，强度立体声各声道用自己的比例因子
+
+
+
+
+
+
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -17,7 +17,7 @@ import { classify, FakeAudioSB } from '../src/player/speed/engine.js';
 import { parseMpegHeader, splitMpegFrames, Mp2Decoder } from '../src/player/speed/mp2.js';
 import { AudioPipeline } from '../src/player/speed/audio.js';
 
-/* ---------------- 造 MP4 的小工具 ---------------- */
+
 
 function be32(v) {
   return [(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255];
@@ -71,7 +71,7 @@ function trex(id, dur, size) {
 }
 const ftyp = box('ftyp', fourcc('iso5'), be32(0), fourcc('iso5'));
 
-/** 一个 moof+mdat：tfdt v1，trun 带 data_offset、每样本时长和大小 */
+
 function fragment(id, t, frames) {
   const trunBody = [0, 0, 0x03, 0x01, ...be32(frames.length), ...be32(0)];
   for (const f of frames) trunBody.push(...be32(f.d), ...be32(f.data.length));
@@ -96,58 +96,58 @@ function fragment(id, t, frames) {
   return [...moof, ...box('mdat', payload)];
 }
 
-/* ---------------- MP2 片段 ---------------- */
+
 
 const fixture = (name) => new Uint8Array(fs.readFileSync(new URL('./fixtures/mp2/' + name, import.meta.url)));
-const SINE_STEREO = fixture('sine-stereo-48k-192k.mp2'); // 25 帧 × 576 字节，左 440Hz/0.5 右 660Hz/0.3
-const SINE_MONO = fixture('sine-mono-48k-64k.mp2'); // 25 帧 × 192 字节
+const SINE_STEREO = fixture('sine-stereo-48k-192k.mp2'); 
+const SINE_MONO = fixture('sine-mono-48k-64k.mp2'); 
 const NOISE = fixture('noise-stereo-48k-64k.mp2');
 const NOISE_REF = (() => {
   const b = fixture('noise-stereo-48k-64k.ref.f32');
   return new Float32Array(b.buffer, b.byteOffset, b.length / 4);
 })();
 
-/** 整段顺序解完，返回 [L, R] */
+
 function decodeAll(u8) {
   const { frames } = splitMpegFrames(u8);
   const n = frames.length * 1152;
   const L = new Float32Array(n);
   const R = new Float32Array(n);
   const dec = new Mp2Decoder();
-  frames.forEach((f, i) => assert.ok(dec.decode(f.data, L, R, i * 1152), '第 ' + i + ' 帧没解出来'));
+  frames.forEach((f, i) => assert.ok(dec.decode(f.data, L, R, i * 1152), 'frame ' + i + ' not decoded'));
   return [L, R];
 }
 
-/* ---------------- isobmff ---------------- */
 
-test('rewriteVideoInit: 只改视频轨刻度，原数据不动', () => {
+
+test('rewriteVideoInit: rewrites video track timescale only', () => {
   const init = new Uint8Array([...ftyp, ...box('moov', videoTrak(1, 90000), audioTrak(2, 44100, mp4a(2, 44100, [0x12, 0x10])))]);
   const before = init.slice();
   const r = rewriteVideoInit(init, 1.5);
   assert.ok(r);
   assert.equal(r.scale, 1.5);
-  assert.deepEqual(init, before, '原数据被改了：hls.js 再 append 一次会乘两遍');
-  // 再改一次副本也只乘一次
+  assert.deepEqual(init, before, 'source data changed: another hls.js append doubles it');
+  
   const again = rewriteVideoInit(init, 1.5);
   assert.deepEqual(again.data, r.data);
-  // 音频轨刻度原样：改完以后照样能读出 44100
+  
   assert.equal(parseAudioInit(r.data).timescale, 44100);
   const dv = new DataView(r.data.buffer);
   const pos = r.data.findIndex((_, i) => String.fromCharCode(...r.data.subarray(i, i + 4)) === 'mdhd');
   assert.equal(dv.getUint32(pos + 4 + 12), 135000);
 });
 
-test('rewriteVideoInit: mdhd v1、没有视频轨返回 null、刻度太小时报出真实倍率', () => {
+test('rewriteVideoInit: mdhd v1, missing video track returns null, tiny timescale reports real rate', () => {
   const v1 = new Uint8Array([...ftyp, ...box('moov', videoTrak(1, 1000, true))]);
   assert.equal(rewriteVideoInit(v1, 1.25).scale, 1.25);
   const audioOnly = new Uint8Array([...ftyp, ...box('moov', audioTrak(1, 48000, mp4a(2, 48000, [0x11, 0x90])))]);
   assert.equal(rewriteVideoInit(audioOnly, 2), null);
   const coarse = new Uint8Array([...ftyp, ...box('moov', videoTrak(1, 25))]);
   const r = rewriteVideoInit(coarse, 1.5);
-  assert.equal(r.scale, 38 / 25); // 偏 1.3%，引擎据此回退
+  assert.equal(r.scale, 38 / 25); 
 });
 
-test('parseAudioInit: mp4a/esds 读出 AAC-LC 44.1k 双声道和 trex 默认值', () => {
+test('parseAudioInit: mp4a/esds reads AAC-LC 44.1k stereo and trex defaults', () => {
   const init = new Uint8Array([
     ...ftyp,
     ...box('moov', audioTrak(7, 44100, mp4a(2, 44100, [0x12, 0x10])), box('mvex', trex(7, 1024, 0)))
@@ -163,14 +163,14 @@ test('parseAudioInit: mp4a/esds 读出 AAC-LC 44.1k 双声道和 trex 默认值'
   assert.deepEqual(info.trex, { duration: 1024, size: 0 });
 });
 
-test('parseAudioInit: 杜比 ac-3 codec 留空；MPEG 音频（esds 0x6B/0x69、.mp3 样本项）认成 mpeg', () => {
+test('parseAudioInit: Dolby ac-3 codec stays empty; MPEG audio (esds 0x6B/0x69, .mp3 sample entry) detected as mpeg', () => {
   const ac3 = sampleEntry('ac-3', 6, 48000);
   assert.equal(parseAudioInit(new Uint8Array([...box('moov', audioTrak(1, 48000, ac3))])).codec, '');
   for (const oti of [0x6b, 0x69]) {
     const mp3 = sampleEntry('mp4a', 2, 44100, esds([0x12, 0x10], oti));
     assert.equal(parseAudioInit(new Uint8Array([...box('moov', audioTrak(1, 44100, mp3))])).codec, 'mpeg');
   }
-  // hls.js 不能直接建 audio/mpeg 时会封成 fMP4 的 '.mp3' 样本项
+  
   const dotMp3 = parseAudioInit(new Uint8Array([...box('moov', audioTrak(4, 48000, sampleEntry('.mp3', 1, 48000)))]));
   assert.equal(dotMp3.codec, 'mpeg');
   assert.equal(dotMp3.trackId, 4);
@@ -178,13 +178,13 @@ test('parseAudioInit: 杜比 ac-3 codec 留空；MPEG 音频（esds 0x6B/0x69、
   assert.equal(dotMp3.sampleRate, 48000);
 });
 
-test('parseAsc: HE-AAC 与 48k', () => {
+test('parseAsc: HE-AAC and 48k', () => {
   assert.deepEqual(parseAsc([0x11, 0x90]), { aot: 2, sfi: 3, sampleRate: 48000, chanCfg: 2 });
   assert.equal(parseAsc([0x2b, 0x92, 0x08, 0x00]).aot, 5);
 });
 
-test('parseFragments: 拆样本、tfdt v1 大时间戳、只来了 moof 的尾巴留给下次', () => {
-  const big = 2 ** 33 + 1024; // 超过 32 位
+test('parseFragments: splits samples, tfdt v1 big timestamp, trailing moof kept for next round', () => {
+  const big = 2 ** 33 + 1024; 
   const frames = [
     { d: 1024, data: [1, 2, 3] },
     { d: 1024, data: [4, 5] },
@@ -201,9 +201,9 @@ test('parseFragments: 拆样本、tfdt v1 大时间戳、只来了 moof 的尾�
       [big + 2048, 1000, [6]]
     ]
   );
-  // 别的轨的 traf 跳过
+  
   assert.equal(parseFragments(new Uint8Array(seg), { trackId: 9 }).samples.length, 0);
-  // 两段拼一起，第二段 mdat 没到
+  
   const second = fragment(3, 0, frames);
   const moofOnly = second.slice(0, second.length - (8 + 6));
   const r2 = parseFragments(new Uint8Array([...seg, ...moofOnly]), { trackId: 3 });
@@ -211,7 +211,7 @@ test('parseFragments: 拆样本、tfdt v1 大时间戳、只来了 moof 的尾�
   assert.equal(r2.rest.length, moofOnly.length);
 });
 
-test('adtsHeader: 各位与长度', () => {
+test('adtsHeader: fields and length', () => {
   const h = adtsHeader({ aot: 2, sfi: 4, chanCfg: 2 }, 100);
   assert.equal(h[0], 0xff);
   assert.equal(h[1], 0xf1);
@@ -222,9 +222,9 @@ test('adtsHeader: 各位与长度', () => {
   assert.equal(len, 107);
 });
 
-/* ---------------- ranges ---------------- */
 
-test('ranges: 合并相邻、删除切段、缩放、越界抛 IndexSizeError', () => {
+
+test('ranges: merges adjacent, deletes ranges, scales, throws IndexSizeError', () => {
   let l = addRange([], 0, 2);
   l = addRange(l, 2.03, 4, 0.05);
   assert.deepEqual(l, [[0, 4]]);
@@ -239,7 +239,7 @@ test('ranges: 合并相邻、删除切段、缩放、越界抛 IndexSizeError', 
   assert.throws(() => tr.start(3), { name: 'IndexSizeError' });
 });
 
-/* ---------------- PCM / WSOLA ---------------- */
+
 
 function sine(sr, sec, hz) {
   const n = Math.round(sr * sec);
@@ -248,20 +248,20 @@ function sine(sr, sec, hz) {
   return a;
 }
 
-test('PcmStore: 按秒插入、连续性、缺口补 0、覆盖重插', () => {
+test('PcmStore: inserts by second, continuity, zero-fills gaps, overwrite reinserts', () => {
   const st = new PcmStore();
   const sr = 1000;
   st.insert(0, [new Float32Array(500).fill(1)], sr);
-  st.insert(0.52, [new Float32Array(480).fill(2)], sr); // 20ms 缝，算连续
+  st.insert(0.52, [new Float32Array(480).fill(2)], sr); 
   st.insert(2, [new Float32Array(100).fill(3)], sr);
   assert.equal(st.contiguousEnd(0), 1000);
-  assert.equal(st.contiguousEnd(1500), 1500); // 不在任何块里
+  assert.equal(st.contiguousEnd(1500), 1500); 
   const out = [new Float32Array(40)];
   st.read(490, 40, out);
   assert.equal(out[0][0], 1);
-  assert.equal(out[0][15], 0); // 缝里补 0
+  assert.equal(out[0][15], 0); 
   assert.equal(out[0][35], 2);
-  // 同一段再来一遍（hls.js 回填），旧块被替换不重复
+  
   st.insert(0, [new Float32Array(500).fill(5)], sr);
   assert.equal(st.blocks.length, 3);
   st.read(0, 1, out);
@@ -285,7 +285,7 @@ function peakOf(a) {
 }
 
 for (const speed of [1.5, 2, 0.5]) {
-  test('WSOLA ' + speed + '×: 输出时长 = 输入 / 倍速，音调不变', () => {
+  test('WSOLA ' + speed + 'x: output duration = input / rate, pitch unchanged', () => {
     const sr = 44100;
     const st = new PcmStore();
     const sig = sine(sr, 4, 440);
@@ -296,27 +296,27 @@ for (const speed of [1.5, 2, 0.5]) {
     let out;
     while ((out = w.process(4))) chunks.push(out);
     const total = chunks.reduce((a, c) => a + c[0].length, 0);
-    const consumed = w.pos; // 名义输入位置
-    // 产出的每个输出采样对应 speed 个输入采样
+    const consumed = w.pos; 
+    
     assert.ok(Math.abs(consumed / total - speed) < 0.01, 'ratio ' + consumed / total);
-    assert.ok(consumed > sig.length * 0.9 - (w.N + w.D) * 2, '输入没吃完：' + consumed);
+    assert.ok(consumed > sig.length * 0.9 - (w.N + w.D) * 2, 'input not fully consumed: ' + consumed);
     const flat = new Float32Array(total);
     let p = 0;
     for (const c of chunks) {
       flat.set(c[0], p);
       p += c[0].length;
     }
-    // 跳过开头的淡入
+    
     const mid = flat.subarray(Math.round(sr * 0.1), total - Math.round(sr * 0.05));
     const hz = zeroCrossHz(mid, sr);
     assert.ok(Math.abs(hz - 440) < 8, 'pitch ' + hz);
-    // 音量稳定：Hann 半帧重叠和为 1，WSOLA 对齐后不该有明显起伏
+    
     const peak = peakOf(mid);
     assert.ok(peak > 0.45 && peak < 0.56, 'peak ' + peak);
   });
 }
 
-test('WSOLA: 输入没到返回 null，nudge 挪名义位置', () => {
+test('WSOLA: returns null when input missing; nudge moves nominal position', () => {
   const st = new PcmStore();
   st.insert(0, [new Float32Array(2000)], 44100);
   const w = new Wsola(st, 1.5);
@@ -326,15 +326,15 @@ test('WSOLA: 输入没到返回 null，nudge 挪名义位置', () => {
   assert.equal(w.pos, 100);
 });
 
-/* ---------------- MP2：帧头 / 切帧 ---------------- */
 
-test('parseMpegHeader: 各层各版本的码率、采样率、帧长', () => {
+
+test('parseMpegHeader: bitrate, sample rate and frame length per layer/version', () => {
   const h = parseMpegHeader(new Uint8Array([0xff, 0xfd, 0xa4, 0x00]), 0);
   assert.deepEqual(
     [h.version, h.layer, h.bitrate, h.sampleRate, h.channels, h.crc, h.samples, h.frameLength],
     [3, 2, 192, 48000, 2, false, 1152, 576]
   );
-  // 44.1k 带 padding、带 CRC、联合立体声
+  
   const p = parseMpegHeader(new Uint8Array([0xff, 0xfc, 0x92, 0x60]), 0);
   assert.deepEqual([p.bitrate, p.sampleRate, p.padding, p.crc, p.mode, p.modeExt, p.frameLength], [160, 44100, 1, true, 1, 2, 523]);
   const mono = parseMpegHeader(SINE_MONO, 0);
@@ -345,7 +345,7 @@ test('parseMpegHeader: 各层各版本的码率、采样率、帧长', () => {
   assert.deepEqual([m2.version, m2.layer, m2.bitrate, m2.sampleRate, m2.samples, m2.frameLength], [2, 3, 64, 22050, 576, 208]);
   const l1 = parseMpegHeader(new Uint8Array([0xff, 0xff, 0x90, 0x00]), 0);
   assert.deepEqual([l1.layer, l1.bitrate, l1.samples, l1.frameLength], [1, 288, 384, 312]);
-  // 不是帧头：没同步字、保留版本、保留层、free format、坏码率、保留采样率、数据不够 4 字节
+  
   for (const b of [
     [0xff, 0x7d, 0xa4, 0],
     [0xff, 0xed, 0xa4, 0],
@@ -359,7 +359,7 @@ test('parseMpegHeader: 各层各版本的码率、采样率、帧长', () => {
   }
 });
 
-test('splitMpegFrames: 跳过前面的垃圾重新同步，末尾半帧放 rest', () => {
+test('splitMpegFrames: skips leading garbage to resync; trailing half frame goes to rest', () => {
   const two = SINE_STEREO.subarray(0, 576 * 2);
   const tail = SINE_STEREO.subarray(576 * 2, 576 * 2 + 100);
   const u8 = new Uint8Array([1, 2, 3, 0xff, 0x00, ...two, ...tail]);
@@ -368,15 +368,15 @@ test('splitMpegFrames: 跳过前面的垃圾重新同步，末尾半帧放 rest'
   assert.deepEqual(frames[0].data, two.subarray(0, 576));
   assert.deepEqual(frames[1].data, two.subarray(576));
   assert.deepEqual(rest, tail);
-  // 整帧刚好对齐：没有 rest
+  
   const all = splitMpegFrames(SINE_STEREO);
   assert.equal(all.frames.length, 25);
   assert.equal(all.rest, null);
 });
 
-/* ---------------- MP2：解码 ---------------- */
 
-test('Mp2Decoder: 立体声正弦，左右声道音调、音量对得上没串', () => {
+
+test('Mp2Decoder: stereo sine, left/right pitch and volume match without crosstalk', () => {
   const [L, R] = decodeAll(SINE_STEREO);
   const a = Math.round(48000 * 0.05);
   const b = L.length - Math.round(48000 * 0.05);
@@ -388,7 +388,7 @@ test('Mp2Decoder: 立体声正弦，左右声道音调、音量对得上没串',
   assert.ok(Math.abs(peakOf(r) - 0.3) < 0.03, 'R peak ' + peakOf(r));
 });
 
-test('Mp2Decoder: 单声道两边一样', () => {
+test('Mp2Decoder: mono identical on both channels', () => {
   const [L, R] = decodeAll(SINE_MONO);
   assert.deepEqual(L, R);
   const mid = L.subarray(2400, L.length - 2400);
@@ -396,7 +396,7 @@ test('Mp2Decoder: 单声道两边一样', () => {
   assert.ok(Math.abs(peakOf(mid) - 0.5) < 0.03, 'peak ' + peakOf(mid));
 });
 
-test('Mp2Decoder: 低码率噪声（粗量化器）和 ffmpeg 解出来的一致', () => {
+test('Mp2Decoder: low-bitrate noise (coarse quantizers) matches ffmpeg decode', () => {
   const [L, R] = decodeAll(NOISE);
   const F = 12;
   const out = [L.subarray(F * 1152, (F + 1) * 1152), R.subarray(F * 1152, (F + 1) * 1152)];
@@ -409,11 +409,11 @@ test('Mp2Decoder: 低码率噪声（粗量化器）和 ffmpeg 解出来的一致
       err += (ref[i] - out[c][i]) ** 2;
     }
     const snr = 10 * Math.log10(sig / (err || 1e-30));
-    assert.ok(snr > 50, '声道 ' + c + ' SNR ' + snr.toFixed(1) + 'dB');
+    assert.ok(snr > 50, 'channel ' + c + ' SNR ' + snr.toFixed(1) + 'dB');
   }
 });
 
-test('Mp2Decoder: 不是 MPEG-1 Layer II 返回 false，输出不动', () => {
+test('Mp2Decoder: non MPEG-1 Layer II returns false, output untouched', () => {
   const dec = new Mp2Decoder();
   const L = new Float32Array(1152).fill(7);
   const R = new Float32Array(1152).fill(7);
@@ -438,19 +438,19 @@ class BitWriter {
   }
 }
 
-/**
- * 手搓一帧 192k/48k 的 Layer II（sblimit 27，高码率分配表）。
- * 只给 sb0（两声道各自分配）、sb5 和 sb12 分配比特；joint = 联合立体声 modeExt 0 → bound 4，
- * sb5/sb12 走强度立体声：量化值只传一份。plain = 普通立体声，同样的量化值给两个声道各传一遍。
- * 两个声道的比例因子故意不一样：解码对的话两帧输出逐采样相同。
- */
+
+
+
+
+
+
 function layer2Frame(joint) {
   const nbal = (sb) => (sb < 11 ? 4 : sb < 23 ? 3 : 2);
-  // 分配值 → 量化器（查 LUT3/LUT4 得来）
-  const Q31 = { v: 4, levels: 31, group: 0, bits: 5 }; // sb0 行 3
-  const Q3 = { v: 1, levels: 3, group: 1, bits: 5 }; // sb0 行 3
-  const Q15 = { v: 5, levels: 15, group: 0, bits: 4 }; // sb5 行 2
-  const Q9 = { v: 4, levels: 9, group: 1, bits: 10 }; // sb12 行 1
+  
+  const Q31 = { v: 4, levels: 31, group: 0, bits: 5 }; 
+  const Q3 = { v: 1, levels: 3, group: 1, bits: 5 }; 
+  const Q15 = { v: 5, levels: 15, group: 0, bits: 4 }; 
+  const Q9 = { v: 4, levels: 9, group: 1, bits: 10 }; 
   const alloc = { 0: [Q31, Q3], 5: [Q15, Q15], 12: [Q9, Q9] };
   const scfsi = { 0: [0, 2], 5: [0, 2], 12: [1, 3] };
   const sf = {
@@ -503,7 +503,7 @@ function layer2Frame(joint) {
   return w.u8;
 }
 
-test('Mp2Decoder: 强度立体声子带两声道共用量化值、各乘自己的比例因子', () => {
+test('Mp2Decoder: intensity stereo subbands share quantized values and apply own scale factors', () => {
   const run = (u8) => {
     const L = new Float32Array(1152);
     const R = new Float32Array(1152);
@@ -516,16 +516,16 @@ test('Mp2Decoder: 强度立体声子带两声道共用量化值、各乘自己�
   assert.equal(parseMpegHeader(plain, 0).mode, 0);
   const [jl, jr] = run(joint);
   const [pl, pr] = run(plain);
-  assert.ok(peakOf(jl) > 0.01 && peakOf(jr) > 0.01, '没解出声音');
-  assert.ok(peakOf(jl) < 1 && peakOf(jr) < 1, '削顶了，比对不出差别');
+  assert.ok(peakOf(jl) > 0.01 && peakOf(jr) > 0.01, 'no audio decoded');
+  assert.ok(peakOf(jl) < 1 && peakOf(jr) < 1, 'clipped, difference undetectable');
   assert.deepEqual(jl, pl);
   assert.deepEqual(jr, pr);
   assert.notDeepEqual(jl, jr);
 });
 
-/* ---------------- engine: 归类 / 假音频 SB ---------------- */
 
-test('classify: 音频 / 视频 / 混合轨', () => {
+
+test('classify: audio / video / mixed track', () => {
   assert.equal(classify('audio/mp4;codecs=mp4a.40.2'), 'audio');
   assert.equal(classify('audio/mpeg'), 'audio');
   assert.equal(classify('video/mp4;codecs=avc1.64001f'), 'video');
@@ -549,7 +549,7 @@ function fakeEngine() {
 
 const wait = (ms = 5) => new Promise((r) => setTimeout(r, ms));
 
-test('FakeAudioSB: 事件顺序、init+分片、buffered 用 timestampOffset 换算', async () => {
+test('FakeAudioSB: event order, init+segment, buffered via timestampOffset', async () => {
   const eng = fakeEngine();
   const sb = new FakeAudioSB(eng, 'audio/mp4;codecs=mp4a.40.2');
   assert.equal(sb.mode, 'segments');
@@ -568,7 +568,7 @@ test('FakeAudioSB: 事件顺序、init+分片、buffered 用 timestampOffset 换
   sb.appendBuffer(new Uint8Array(fragment(1, 48000, frames)));
   await wait();
   assert.deepEqual(eng.log.push[0], { n: 47, ts: 48000, off: 10 });
-  assert.equal(sb.timestampOffset, 10, 'segments 模式下 offset 不该顺延');
+  assert.equal(sb.timestampOffset, 10, 'offset must not carry over in segments mode');
   assert.equal(sb.buffered.length, 1);
   assert.equal(sb.buffered.start(0), 11);
   assert.ok(Math.abs(sb.buffered.end(0) - (11 + (47 * 1024) / 48000)) < 1e-9);
@@ -580,7 +580,7 @@ test('FakeAudioSB: 事件顺序、init+分片、buffered 用 timestampOffset 换
   assert.deepEqual(eng.log.fail, []);
 });
 
-test('FakeAudioSB: 不认的音频直接报 audio-codec，但事件照发不卡 hls.js 队列', async () => {
+test('FakeAudioSB: unknown audio reports audio-codec but events flow without blocking hls.js queue', async () => {
   const eng = fakeEngine();
   new FakeAudioSB(eng, 'audio/webm;codecs=opus');
   assert.deepEqual(eng.log.fail, ['audio-codec']);
@@ -595,7 +595,7 @@ test('FakeAudioSB: 不认的音频直接报 audio-codec，但事件照发不卡 
   assert.deepEqual(eng2.log.fail, ['audio-codec']);
 });
 
-test('FakeAudioSB audio/mpeg: sequence 模式，timestampOffset 按帧顺延，半帧拼到下一次', async () => {
+test('FakeAudioSB audio/mpeg: sequence mode, timestampOffset advances per frame, half frame carried over', async () => {
   const eng = fakeEngine();
   const sb = new FakeAudioSB(eng, 'audio/mpeg');
   assert.equal(sb.mode, 'sequence');
@@ -612,7 +612,7 @@ test('FakeAudioSB audio/mpeg: sequence 模式，timestampOffset 按帧顺延，�
   assert.equal(eng.log.init[0].channels, 2);
   assert.ok(Math.abs(sb.timestampOffset - (10 + 3 * dt)) < 1e-9);
 
-  // 剩下半帧 + 一整帧：拼上前面那 300 字节正好两帧
+  
   sb.appendBuffer(SINE_STEREO.subarray(F * 3 + 300, F * 5));
   await wait();
   assert.equal(eng.log.push[1].n, 2);
@@ -622,7 +622,7 @@ test('FakeAudioSB audio/mpeg: sequence 模式，timestampOffset 按帧顺延，�
   assert.equal(sb.buffered.start(0), 10);
   assert.ok(Math.abs(sb.buffered.end(0) - (10 + 5 * dt)) < 1e-9);
 
-  // 来了半帧之后 hls.js 改 offset（拖动）：半帧接不上新位置，扔掉
+  
   sb.appendBuffer(SINE_STEREO.subarray(F * 5, F * 5 + 300));
   await wait();
   assert.equal(eng.log.push.length, 2);
@@ -635,7 +635,7 @@ test('FakeAudioSB audio/mpeg: sequence 模式，timestampOffset 按帧顺延，�
   assert.deepEqual(eng.log.fail, []);
 });
 
-test('FakeAudioSB audio/mpeg: MP3 / MPEG-2 报 audio-codec；changeType 能在两种输入间切', async () => {
+test('FakeAudioSB audio/mpeg: MP3 / MPEG-2 reports audio-codec; changeType switches inputs', async () => {
   const l3 = new Uint8Array(417 * 2);
   l3.set([0xff, 0xfb, 0x90, 0x00], 0);
   l3.set([0xff, 0xfb, 0x90, 0x00], 417);
@@ -656,9 +656,9 @@ test('FakeAudioSB audio/mpeg: MP3 / MPEG-2 报 audio-codec；changeType 能在�
   assert.deepEqual(eng2.log.fail, []);
 });
 
-/* ---------------- AudioPipeline：MP2 分片解码队列 ---------------- */
 
-/** node 里没有 AudioContext：排期那半边不跑，只验解码入库 */
+
+
 function makePipeline() {
   const video = new EventTarget();
   video.paused = true;
@@ -676,14 +676,14 @@ function mpegSamples(u8, from = 0, to = Infinity) {
 
 async function drain(ap) {
   for (let i = 0; i < 400 && ap._mpQ.length; i++) await wait(2);
-  assert.equal(ap._mpQ.length, 0, '解码队列没跑完');
+  assert.equal(ap._mpQ.length, 0, 'decode queue not drained');
 }
 
-test('AudioPipeline mp2: 分两批推，入库的 PCM 和一口气解的逐采样相同', async () => {
+test('AudioPipeline mp2: two batches produce sample-identical PCM to one-shot decode', async () => {
   const { ap, fails } = makePipeline();
   try {
     assert.equal(ap.stats.path, 'mp2');
-    // 两批之间时间连续：滤波器状态要接着用，不能复位
+    
     ap.push(mpegSamples(SINE_STEREO, 0, 12), 48000, 10);
     ap.push(mpegSamples(SINE_STEREO, 12), 48000, 10);
     await drain(ap);
@@ -708,7 +708,7 @@ test('AudioPipeline mp2: 分两批推，入库的 PCM 和一口气解的逐采�
   }
 });
 
-test('AudioPipeline mp2: remove 掉还在排队的批次；MP3 报 audio-codec；连着坏三批报 audio-decode', async () => {
+test('AudioPipeline mp2: removes queued batches; MP3 reports audio-codec; three bad batches report audio-decode', async () => {
   const { ap, fails } = makePipeline();
   try {
     ap.push(mpegSamples(SINE_STEREO, 0, 5), 48000, 0);
@@ -723,7 +723,7 @@ test('AudioPipeline mp2: remove 掉还在排队的批次；MP3 报 audio-codec�
     assert.deepEqual(fails, ['audio-codec']);
     assert.equal(ap._mpQ.length, 0);
 
-    // 一批里偶尔一帧坏的照常入库
+    
     const mixed = mpegSamples(SINE_STEREO, 0, 4);
     mixed[1] = { t: 1152, d: 1152, data: new Uint8Array(576) };
     ap.push(mixed, 48000, 0);

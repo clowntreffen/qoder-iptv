@@ -1,4 +1,4 @@
-// 顶部状态栏：源名、频道总数、当前时间/日期、网络状态
+
 import { fmtClock, fmtDate, esc } from '../core/util.js';
 import { t } from '../core/i18n.js';
 
@@ -34,8 +34,8 @@ export class StatusBar {
     this.el.classList.remove('hidden');
     clearInterval(this.timer);
     this.timer = setInterval(() => this._render(), 1000);
-    // 自动隐藏定时器必须存句柄：show() 会被多处重复调用，
-    // 不清掉上一次的会让状态栏按更早的那次提前消失。
+    
+    
     clearTimeout(this.hideTimer);
     this.hideTimer = null;
     if (duration > 0) {

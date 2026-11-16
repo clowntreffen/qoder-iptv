@@ -1,5 +1,5 @@
 // Run: node --test scripts/test-pin.mjs
-// 家长 PIN：同步 SHA-256（含分组/边界向量）、加盐存储格式、旧明文兼容与迁移。
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -41,14 +41,14 @@ test('hashPin stores salt:hash, hashes are unique and verify only the original P
   const a = hashPin('1234');
   const b = hashPin('1234');
   assert.match(a, /^[0-9a-f]{16}:[0-9a-f]{64}$/);
-  assert.notEqual(a, b, '每次迁移/设置都用新盐');
+  assert.notEqual(a, b, 'every migration/set uses a fresh salt');
   assert.equal(isHashedPin(a), true);
   assert.equal(isHashedPin('1234'), false);
   assert.equal(verifyPin('1234', a), true);
   assert.equal(verifyPin('4321', a), false);
   assert.equal(verifyPin('', a), false);
 
-  // 旧版明文兼容；看起来像冒号的明文不会被误判成哈希。
+  
   assert.equal(verifyPin('1234', '1234'), true);
   assert.equal(verifyPin('4321', '1234'), false);
   assert.equal(verifyPin('12:34', '12:34'), true);
@@ -61,5 +61,5 @@ test('migratePin hashes plaintext once and keeps hashed/empty values untouched',
   const plain = migratePin('1234');
   assert.equal(isHashedPin(plain), true);
   assert.equal(verifyPin('1234', plain), true);
-  assert.equal(migratePin(plain), plain, '已是哈希不再二次加盐');
+  assert.equal(migratePin(plain), plain, 'already hashed, no double salting');
 });

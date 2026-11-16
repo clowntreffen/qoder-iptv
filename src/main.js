@@ -1,4 +1,4 @@
-// 应用入口：初始化各模块、加载源、全局遥控分发
+
 import { KEY, digitOf } from './core/keys.js';
 import { fetchM3U, applyActiveSource, renumberChannels, groupChannels } from './core/m3uParser.js';
 import { epgStore } from './core/epgStore.js';
@@ -56,25 +56,25 @@ import { ChannelEditor } from './ui/ChannelEditor.js';
 const $ = (id) => document.getElementById(id);
 
 const app = {
-  channels: [], // 扁平频道列表（按 index 排序，已应用分组隐藏过滤）
-  allChannels: [], // 隐藏过滤前的全量频道，改分组可见性时即时重新过滤，无需重拉源
-  channelsAll: [], // 仅按分组过滤（含单频道自定义隐藏），供频道菜单列出并编辑
-  allGroups: [], // [{ name, count }] 隐藏前的全部分组，供分组管理面板列出
-  current: null, // 当前频道
-  source: null, // 当前源
+  channels: [], 
+  allChannels: [], 
+  channelsAll: [], 
+  allGroups: [], 
+  current: null, 
+  source: null, 
   settings: getSettings(),
-  zapMode: 'all', // 换台上下文：'all' | 'fav'（在收藏组里选台后只在收藏间换）
-  lockedGroups: new Set(getLockedGroups()), // 家长锁：分组名（跨源）
-  unlockedGroups: new Set(), // 本次会话内已用 PIN 解锁的分组
-  groupLockVersion: 0, // 锁集合版本，供 zapOrder 缓存失效
+  zapMode: 'all', 
+  lockedGroups: new Set(getLockedGroups()), 
+  unlockedGroups: new Set(), 
+  groupLockVersion: 0, 
   numBuffer: '',
   numTimer: null
 };
 
-// 源切换可能并发：慢请求晚到时不得覆盖用户后来选择的源。
+
 let sourceLoadId = 0;
 
-// ---- 组件实例 ----
+
 const player = new Player($('video'));
 const osd = new Osd($('osd'));
 const statusBar = new StatusBar($('status-bar'));
@@ -93,7 +93,7 @@ const pinEntry = new PinEntry($('pin-entry'));
 const backupDialog = new BackupDialog($('backup-dialog'));
 const channelEditor = new ChannelEditor($('channel-editor'));
 
-// ---- 通用 UI ----
+
 function toast(msg, ms = 2600) {
   const el = $('toast');
   el.textContent = msg;
@@ -105,10 +105,10 @@ function loading(show) {
   $('loading').classList.toggle('hidden', !show);
 }
 
-// ---- 退出确认对话框 ----
-// 直播界面按返回键弹出，确认后退出到电视主界面（默认焦点在“取消”，避免误退）。
+
+
 let exitDialogOpen = false;
-let exitFocus = 0; // 0=取消 1=退出
+let exitFocus = 0; 
 
 function renderExitDialog() {
   $('exit-dialog').innerHTML = `
@@ -124,7 +124,7 @@ function renderExitDialog() {
 
 function openExitDialog() {
   exitDialogOpen = true;
-  exitFocus = 0; // 默认「取消」，避免误触直接退出
+  exitFocus = 0; 
   renderExitDialog();
   $('exit-dialog').classList.remove('hidden');
 }
@@ -134,7 +134,7 @@ function closeExitDialog() {
   $('exit-dialog').classList.add('hidden');
 }
 
-// 退出到电视主界面：优先走 webOS 系统接口，不行再退回 window.close()
+
 function exitApp() {
   closeExitDialog();
   try {
@@ -167,18 +167,18 @@ function handleExitKey(code) {
     default:
       break;
   }
-  return true; // 对话框打开时吞掉其余按键
+  return true; 
 }
 
-// ---- 加载指示的状态机 ----
-// 只在"换台起播"阶段立刻转圈；画面出来之后，播放途中的短暂缓冲抖动（waiting）
-// 不再重新弹出转圈，只有持续卡顿超过 1.5 秒才显示，避免看起来"又转了一次"。
+
+
+
 let zapStarting = false;
-let zapStartAt = 0; // 本次换台的起播计时起点，出画面时算出耗时给网速角标显示
+let zapStartAt = 0; 
 let stallTimer = null;
-let startWatchdog = null; // 起播看门狗：超时仍未出画面则判定失败（hls.js 卡在 manifest 时不一定报 fatal，需应用层兼底）
-let failoverCount = 0; // 本次换台已自动尝试的备用源次数
-const START_TIMEOUT_MS = 12000; // 起播超时（含 hls.js 内部重试余量）
+let startWatchdog = null; 
+let failoverCount = 0; 
+const START_TIMEOUT_MS = 12000; 
 const runtimeStall = new StallWatchdog({
   getPosition: () => (player.video && player.video.currentTime) || 0,
   isActive: () => !!app.current && !player.isCatchup() && !document.hidden &&
@@ -195,7 +195,7 @@ function beginLoading(preserveStart = false) {
   clearTimeout(startWatchdog);
   startWatchdog = setTimeout(onStartTimeout, START_TIMEOUT_MS);
   loading(true);
-  netSpeed.reset(); // 换台：下载字节计数归零，网速基准同步重置
+  netSpeed.reset(); 
 }
 
 function endLoading() {
@@ -208,7 +208,7 @@ function endLoading() {
   loading(false);
 }
 
-// 起播看门狗触发：到点仍未出画面 → 先自动切备用源，源试完再报错停转圈
+
 function onStartTimeout() {
   startWatchdog = null;
   if (player.video.paused && player.video.readyState >= 2 && !player.video.error) {
@@ -223,7 +223,7 @@ function onStartTimeout() {
   toast(t('toast.channelUnavailable'), 4000);
 }
 
-// 尝试切到同频道的下一个备用源并重试（仅直播态；全部试完返回 false）
+
 function tryFailover() {
   const ch = app.current;
   if (player.isCatchup() || !ch || !ch.sources || ch.sources.length < 2) return false;
@@ -250,7 +250,7 @@ function handleRuntimeStall() {
   toast(t('toast.runtimeStalled'), 4000);
 }
 
-// 是否有任意浮层打开
+
 function anyOverlayOpen() {
   return (
     channelMenu.isOpen() ||
@@ -267,26 +267,26 @@ function anyOverlayOpen() {
   );
 }
 
-// ---- 播放 ----
-let liveStartAt = 0; // 本次直播起流的时刻，用于判断是否卡死需要重试
 
-// 目标频道是否就是"当前已在加载/播放中的那一路直播流"。
-// 以播放地址为准而不是频道 key：key 含分组名（如 ch:央视|CCTV10高清），
-// 同一个台在不同分组下 key 并不相同，只要地址一致就是同一路流，无需重新加载。
-// 也不要用 readyState/paused 判断：正在缓冲、或因自动播放策略被静音暂停时它们会失真。
+let liveStartAt = 0; 
+
+
+
+
+
 function isPlayingLive(ch) {
   if (!ch || !ch.url) return false;
-  if (player.isCatchup()) return false; // 回看态选同一台，应当切回直播
+  if (player.isCatchup()) return false; 
   const cur = player.current;
-  if (!cur || cur.url !== ch.url) return false; // 尚未起流，或地址已变（换源/切备用源）
+  if (!cur || cur.url !== ch.url) return false; 
   const v = player.video;
-  if (!v || v.error) return false; // 播放出错时允许重选以重试
-  // 起流已超过 8 秒却仍拿不到任何数据，视为卡死，允许重选以重试
+  if (!v || v.error) return false; 
+  
   if (v.readyState === 0 && Date.now() - liveStartAt > 8000) return false;
   return true;
 }
 
-// 上次成功播过的源优先。记忆越界（源列表变短）时保持 0。
+
 function useRememberedSource(ch) {
   if (!ch || !ch.sources || ch.sources.length < 2) return;
   const idx = getLastSourceIdx(ch.key);
@@ -295,7 +295,7 @@ function useRememberedSource(ch) {
   applyActiveSource(ch);
 }
 
-// 出画面才算数：记的是「能播」，不是「用户点过」。
+
 function rememberPlayingSource() {
   const ch = app.current;
   if (!ch || player.isCatchup()) return;
@@ -305,7 +305,7 @@ function rememberPlayingSource() {
   setLastSourceIdx(ch.key, ch.sourceIdx);
 }
 
-// 回看时先落盘续播位置， bevor der Kanal gewechselt wird.
+
 // (Vor allem beim „Zurück zu Live“ sowie bei Source/Group-Wechsel.)
 function rememberResumeIfCatchup() {
   if (!player.isCatchup() || !app.current) return;
@@ -317,17 +317,17 @@ function rememberResumeIfCatchup() {
   setResumePosition(key, pos);
 }
 
-// playLive(ch, delay, mode)：delay>0 时先只更新 OSD/状态，延迟后才真正起流。
-// 用于连按上下键快速翻台——中间台不会各自发起一次加载，只加载最终停留的那个台。
-// mode 设定后续换台上下文：'all'（默认）或 'fav'（收藏组内换台）。
+
+
+
 function playLive(ch, delay = 0, mode = 'all') {
   if (!ch) return;
   clearTimeout(playLive._t);
   rememberResumeIfCatchup();
   app.zapMode = mode;
 
-  // 选中的就是当前正在正常播放的频道：不重新起流，只刷新 OSD，
-  // 避免在频道栏点当前台造成一次无谓的重新缓冲。
+  
+  
   if (isPlayingLive(ch)) {
     app.current = ch;
     osd.show(ch);
@@ -342,7 +342,7 @@ function playLive(ch, delay = 0, mode = 'all') {
 
   const start = () => {
     playLive._t = null;
-    failoverCount = 0; // 用户主动换台：重置备用源自动切换计数
+    failoverCount = 0; 
     runtimeStall.reset();
     liveStartAt = Date.now();
     beginLoading();
@@ -353,7 +353,7 @@ function playLive(ch, delay = 0, mode = 'all') {
   else start();
 }
 
-// 回看断点续播： gespeicherte Position (>10s vor Ende) fragt vor dem Start ab.
+
 function playCatchup(ch, programme) {
   const url = buildCatchupUrl(ch, programme);
   if (!url) {
@@ -398,7 +398,7 @@ function returnToLive() {
   }
 }
 
-// 换台只登记邻台，最新清单和分片均由连续可播余量放行。
+
 
 function schedulePrefetch() {
   player.holdWarm();
@@ -415,8 +415,8 @@ function prefetchNeighbors() {
   try {
     console.log('[warm] neighbours of ' + app.current.name + ': ' + next.name + ' / ' + prev.name);
   } catch (e) {}
-  // Player 按登记顺序串行取最新清单，先照顾上次翻台的方向。
-  // 预热的清单/分片请求也要带邻台自己的源级头，所以把 channel.headers 一并传下去。
+  
+  
   const forward = lastZapDir >= 0;
   const first = forward ? next : prev;
   const second = forward ? prev : next;
@@ -424,19 +424,19 @@ function prefetchNeighbors() {
   player.prefetch(second.url, false, second.headers);
 }
 
-// 上一次翻台的方向（+1 = CH+/下一个，-1 = CH-/上一个），供预热排序用
+
 let lastZapDir = 1;
 
-// 换台序列：按分组聚合展开，与频道菜单分组栏顺序一致
-// 这样上下键会在组内依次走，走到本组最后一个再按下就进入下一组的第一个台。
-// 收藏组不参与（它只是引用，避免同一个台被遍历两次）。结果按 app.channels 引用缓存。
+
+
+
 function zapOrder() {
   if (zapOrder._src === app.channels && zapOrder._lockVer === app.groupLockVersion && zapOrder._list) {
     return zapOrder._list;
   }
   const map = new Map();
   for (const ch of app.channels) {
-    if (!isGroupUnlocked(ch.group)) continue; // 锁定的分组不参与换台
+    if (!isGroupUnlocked(ch.group)) continue; 
     if (!map.has(ch.group)) map.set(ch.group, []);
     map.get(ch.group).push(ch);
   }
@@ -448,7 +448,7 @@ function zapOrder() {
   return list;
 }
 
-// 收藏换台序列：仍是频道主顺序，只筛出收藏；版本随 favVersion 失效。
+
 function favZapOrder() {
   const base = zapOrder();
   if (favZapOrder._src !== base || favZapOrder._favVer !== favVersion() || !favZapOrder._list) {
@@ -459,12 +459,12 @@ function favZapOrder() {
   return favZapOrder._list;
 }
 
-// 当前换台序列：收藏上下文里只在收藏间走，否则全频道。
+
 function zapList() {
   return app.zapMode === 'fav' ? favZapOrder() : zapOrder();
 }
 
-// 跨分组换台时短暂提示新分组名
+
 function showGroupHint(name) {
   if (!name) return;
   const el = $('group-hint');
@@ -474,40 +474,40 @@ function showGroupHint(name) {
   showGroupHint._t = setTimeout(() => el.classList.add('hidden'), 2000);
 }
 
-// 按分组顺序换台（相对偏移）
-// 连按时用 350ms 防抖：翻过的中间台不起流，只加载最终停留的频道
+
+
 function switchByOffset(delta) {
   let list = zapList();
-  // 收藏上下文失效（列表空、或当前台已不是收藏）→ 退回全频道
+  
   if (app.zapMode === 'fav' &&
       (!list.length || !list.some((c) => c.key === (app.current && app.current.key)))) {
     app.zapMode = 'all';
     list = zapOrder();
   }
   if (!list.length) return;
-  lastZapDir = delta >= 0 ? 1 : -1; // 记下方向，预热优先热这一侧（见 prefetchNeighbors）
+  lastZapDir = delta >= 0 ? 1 : -1; 
   let idx = list.findIndex((c) => c.key === (app.current && app.current.key));
   if (idx < 0) idx = 0;
   idx = (idx + delta + list.length) % list.length;
   const next = list[idx];
-  // 进入新分组时提示分组名（收藏上下文里不报原分组名）
+  
   if (app.zapMode !== 'fav' && (!app.current || app.current.group !== next.group)) {
     showGroupHint(next.group);
   }
-  // 单次换台立即起流（零额外延迟）；仅当连按（距上次换台 <500ms）时才延迟合并，
-  // 避免快速翻台时每个中间台都发起一次加载。
+  
+  
   const now = Date.now();
   const rapid = now - (switchByOffset._last || 0) < 500;
   switchByOffset._last = now;
-  // 带上当前上下文：收藏换台后仍是收藏，不能被默认参数重置回全频道。
+  
   playLive(next, rapid ? 300 : 0, app.zapMode);
 }
 
-// 切换当前频道的源（同 tvg-id 的不同源），delta=+1/-1
+
 function switchSource(delta) {
   const ch = app.current;
   if (!ch || !ch.sources || ch.sources.length < 2) return false;
-  failoverCount = 0; // 用户手动换源：重置自动切换计数
+  failoverCount = 0; 
   runtimeStall.reset();
   ch.sourceIdx = (ch.sourceIdx + delta + ch.sources.length) % ch.sources.length;
   applyActiveSource(ch);
@@ -520,7 +520,7 @@ function switchSource(delta) {
   return true;
 }
 
-// 数字换台
+
 function pushDigit(d) {
   app.numBuffer += String(d);
   const el = $('channel-input');
@@ -535,7 +535,7 @@ function commitNumber() {
   app.numBuffer = '';
   $('channel-input').classList.add('hidden');
   if (!n) return;
-  // 频道序号已统一从 1 连编（chno），index 与其相同，作兼容回退
+  
   const ch =
     app.channels.find((c) => String(c.chno) === String(n)) ||
     app.channels.find((c) => c.index === n);
@@ -548,10 +548,10 @@ function commitNumber() {
   } else toast(t('toast.channelNotFound', { num: n }));
 }
 
-// ---- 加载源 ----
 
-// 按 hiddenGroups 过滤出可见频道并重新连号（从 1 起）。
-// 全隐藏会导致列表空掉，此时忽略设置以防白屏。返回的数组始终已重新编号。
+
+
+
 function filterVisibleGroups(channels, hiddenGroups) {
   const hidden = new Set(hiddenGroups || []);
   const visible = hidden.size ? channels.filter((ch) => !hidden.has(ch.group)) : channels;
@@ -563,24 +563,24 @@ function filterVisibleGroups(channels, hiddenGroups) {
   return visible;
 }
 
-// 分组可见性 + 单频道自定义隐藏合并成两份列表：
-// channelsAll = 只按分组过滤（菜单用，隐藏台仍列出并标记，保证能再编辑回来）；
-// channels = 再排除 customHidden（换台/搜索/EPG 指南用）。
+
+
+
 function rebuildChannelLists() {
   const src = app.source;
   const groupVisible = filterVisibleGroups(app.allChannels, src ? src.hiddenGroups : []);
   app.channelsAll = groupVisible;
   app.channels = groupVisible.filter((ch) => !ch.customHidden);
-  // 删掉隐藏台后会缺号，重新连编；同一批 ch 对象，channelsAll 里的号码同步更新。
+  
   renumberChannels(app.channels);
 }
 
-// 分组管理面板关闭时回调：写回并持久化 hiddenGroups，用全量即时重新过滤，免重拉源。
+
 function applyGroupVisibility(hiddenArr) {
   const src = app.source;
   if (!src) return;
   src.hiddenGroups = hiddenArr;
-  // 持久化到 sources 列表里同 id 的项（与 deadUrls 同一套路径）
+  
   const list = getSources();
   const item = list.find((s) => s.id === src.id);
   if (item) {
@@ -591,20 +591,20 @@ function applyGroupVisibility(hiddenArr) {
   const visible = app.channels;
   statusBar.setSource(src.name, visible.length);
   statusBar.show(5000);
-  // 当前台仍在可见列表里就不打断播放；被隐藏了才切到第一个可见台
+  
   if (app.current && !visible.some((c) => c.key === app.current.key)) {
     if (visible.length) playLive(visible[0]);
   }
   toast(t('toast.groupsApplied', { n: visible.length }));
 }
 
-// 家长锁：分组是否可进（未锁，或本次会话已用 PIN 解锁）
+
 function isGroupUnlocked(name) {
   if (!app.lockedGroups.has(name)) return true;
   return app.unlockedGroups.has(name);
 }
 
-// 频道菜单用列表：按分组可见性过滤，但保留单频道隐藏的台（标记出来，保证还能编辑回来）；锁定分组排除。
+
 function visibleChannelsForMenu() {
   return (app.channelsAll || app.channels).filter((c) => isGroupUnlocked(c.group));
 }
@@ -622,7 +622,7 @@ async function loadSource(src, options = {}) {
   const loadId = ++sourceLoadId;
   app.source = src;
   app.zapMode = 'all';
-  // 立即使上一个源尚未完成的 XMLTV/DIYP 请求失效，不能让旧节目单写回新源。
+  
   if (!silent) {
     epgStore.clear();
     loading(true);
@@ -631,8 +631,8 @@ async function loadSource(src, options = {}) {
     const { epgUrl, channels: parsed } = await fetchM3U(src.m3uUrl);
     if (loadId !== sourceLoadId) return;
     let channels = parsed;
-    // 应用「测试」得到的失效地址过滤。超过 TTL 的旧结论不再永久拉黑，
-    // 下次加载会重新尝试这些地址。
+    
+    
     const deadUrls = activeDeadUrls(src);
     if (deadUrls.length) {
       const dead = new Set(deadUrls);
@@ -643,7 +643,7 @@ async function loadSource(src, options = {}) {
         applyActiveSource(ch);
         return true;
       });
-      // 删掉频道后会缺号，重新连编
+      
       renumberChannels(channels);
     }
     if (!channels.length) {
@@ -654,12 +654,12 @@ async function loadSource(src, options = {}) {
       return;
     }
     applySourceCatchup(src, channels);
-    // 自定义改名/隐藏/偏移按 ch.key 重放到新解析出的对象上（跨刷新稳定）
+    
     applyChannelOverrides(channels, getChannelOverrides());
-    // 记录隐藏过滤前的全量：供分组管理面板列出，也用于改可见性时即时重新过滤（免重拉源）
+    
     app.allChannels = channels;
     app.allGroups = groupChannels(channels).map((g) => ({ name: g.name, count: g.channels.length }));
-    // 按源保存的隐藏分组 + 单频道自定义隐藏，生成菜单/换台两份列表
+    
     rebuildChannelLists();
     const visible = app.channels;
     statusBar.setSource(src.name, visible.length);
@@ -683,7 +683,7 @@ async function loadSource(src, options = {}) {
       return;
     }
 
-    // 加载 EPG：只使用用户手填地址或 M3U 内的 url-tvg，不自动请求第三方节目数据。
+    
     const finalEpg = src.epgUrl || epgUrl;
     const finalEpgType = src.epgType;
     if (finalEpg) {
@@ -694,7 +694,7 @@ async function loadSource(src, options = {}) {
       });
     }
 
-    // 自动播放上次频道或第一个
+    
     let target = null;
     if (app.settings.autoPlayLast) {
       const lastKey = getLastChannelKey();
@@ -709,15 +709,15 @@ async function loadSource(src, options = {}) {
     loading(false);
     const msg = (e && e.message) || '';
     toast(t('toast.loadFailed', { msg: describeFetchError(msg, src.m3uUrl) }), 8000);
-    // 拉不到频道就什么也做不了，直接把源管理器弹出来，让用户能当场改地址
-    //（LG Magic Remote 没有彩色键，按不了蓝键手动打开）
+    
+    
     sourceManager.open();
   }
 }
 
-// 把底层的 fetch 报错翻译成能指导操作的说明。
-// 网页层的 fetch 拿不到失败细节：域名不存在、证书不被信任、CORS 被拦、网络不通，
-// 统统只给一句 Failed to fetch，无法区分，所以把常见原因按可能性列出来。
+
+
+
 function describeFetchError(msg, url) {
   if (/abort/i.test(msg)) return t('err.timeout');
   if (/HTTP\s*\d/i.test(msg)) return t('err.httpRejected', { msg });
@@ -730,11 +730,11 @@ function describeFetchError(msg, url) {
   return msg || t('sm.netError');
 }
 
-// 刷新当前可见组件（EPG 到达后）
+
 function refreshVisible() {
   if (channelMenu.isOpen()) channelMenu.refreshEpg();
   if (epgGuide.isOpen()) epgGuide.refreshEpg();
-  // OSD 正显示时补上刚到达的节目信息
+  
   if (osd.isVisible() && app.current) {
     osd.show(app.current, {
       catchup: player.isCatchup(),
@@ -743,10 +743,10 @@ function refreshVisible() {
   }
 }
 
-// EPG 懒加载（DIYP 按需拉取）新数据到达时刷新界面
+
 epgStore.onUpdate = refreshVisible;
 
-// ---- 应用设置 ----
+
 function applySettings(s) {
   app.settings = s;
   player.setAspect(s.aspect);
@@ -757,12 +757,12 @@ function applySettings(s) {
   applyLanguage();
 }
 
-// 固定英文界面：仅同步 html lang；设置迁移保证旧存档不会切回中文。
+
 function applyLanguage() {
   document.documentElement.lang = getLang();
 }
 
-// webOS 图形画布使用 FHD；视频解码分辨率独立于 UI 画布。
+
 function fitScreen() {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -775,7 +775,7 @@ function fitScreen() {
 window.addEventListener('resize', fitScreen);
 window.addEventListener('orientationchange', fitScreen);
 
-// ---- PIN / 备份 / 定时器 ----
+
 function askPin({ title, prompt, onSubmit, onCancel }) {
   pinEntry.open({
     title: title || t('pin.title'),
@@ -797,7 +797,7 @@ function setHashedPin(pin) {
 }
 
 function changePin() {
-  // 已有 PIN：先验旧 PIN，避免拿到遥控器的人直接改掉家长锁。
+  
   const askNew = () => askPin({
     title: t('pin.newTitle'),
     prompt: t('pin.newPrompt'),
@@ -938,14 +938,14 @@ function checkReminders() {
 }
 setInterval(checkReminders, 30000);
 
-// ---- 组件回调 ----
+
 channelMenu.onPlayLive = (ch, opts) => playLive(ch, 0, opts && opts.zapMode);
 channelMenu.onPlayCatchup = playCatchup;
 channelMenu.onOpenSettings = () => settings.open();
 channelMenu.onOpenSearch = (key) => search.open(app.channels, key);
 channelMenu.onToast = toast;
 channelMenu.isGroupUnlocked = (name) => isGroupUnlocked(name);
-// 锁定的分组：先验家长 PIN，成功才放行进组
+
 channelMenu.onRequestUnlock = (name, cb) => {
   if (!app.settings.parentalPin) {
     toast(t('toast.noPinForLock'));
@@ -956,7 +956,7 @@ channelMenu.onRequestUnlock = (name, cb) => {
     title: t('pin.groupTitle'),
     prompt: t('pin.groupPrompt'),
     onSubmit: (pin) => {
-      if (!verifyPin(pin)) return false; // PinEntry 显示错误并保留输入
+      if (!verifyPin(pin)) return false; 
       app.unlockedGroups.add(name);
       app.groupLockVersion++;
       cb(true);
@@ -967,7 +967,7 @@ channelMenu.onRequestUnlock = (name, cb) => {
 };
 channelMenu.onProbeCatchup = probeChannelCatchup;
 channelMenu.catchupNote = catchupNote;
-// MENU 键：打开频道自定义编辑器（改名/隐藏/EPG 偏移）
+
 channelMenu.onEditChannel = (ch) => {
   if (!ch) return;
   channelEditor.open(ch);
@@ -986,7 +986,7 @@ channelEditor.onChanged = () => {
   refreshCustomization();
   const hasOverride = key && getOverride(getChannelOverrides(), key);
   toast(hasOverride ? t('toast.channelUpdated') : t('toast.channelReset'));
-  // 菜单还开着就刷新它，让改名/隐藏标记立刻可见
+  
   if (channelMenu.isOpen()) channelMenu.render();
 };
 channelEditor.onClose = () => {};
@@ -1020,7 +1020,7 @@ settings.onRefreshEpg = () => {
   const type = (app.source && app.source.epgType) || epgStore.mode;
   toast(t('toast.refreshingEpg'));
   epgStore.load(url, type, { force: true }).then((ok) => {
-    if (ok == null) return; // 已被更新的加载接管，不显示旧请求的失败提示
+    if (ok == null) return; 
     toast(ok ? t('toast.epgUpdated') : t('toast.epgFailed'));
     refreshVisible();
   });
@@ -1077,45 +1077,45 @@ backupDialog.onRestore = (text) => {
   }
 };
 
-// 关闭调参面板且改过参数：hls.js 的配置只在 new Hls() 时读一次，所以必须重新起播才生效。
-// 回看态不去打断（重起会丢掉当前进度），标记留着，下次起播自然会应用。
+
+
 playerTuning.onApply = () => {
   player.markTuningDirty();
   if (!app.current || player.isCatchup()) return;
   toast(t('toast.tuningApplied'));
-  player.stop(); // 清掉 player.current，否则 playLive 会认为「已在播这个台」而短路
+  player.stop(); 
   playLive(app.current, 0, app.zapMode);
 };
 
 player.onError = (msg) => {
-  // 先尝试备用源（多源频道），源都试完再报错
+  
   if (tryFailover()) return;
   endLoading();
   toast(msg, 4000);
 };
 
-// 非错误提示：原生解码熔断后只降级不报错，提示一次让用户知道画质可能变差
+
 player.onNotice = (msg) => toast(msg, 4000);
 
-// 回看倍速走不通（换档被拒或引擎中途失败）：播放器已回 1×，这里提示原因并刷新控制条
+
 player.onRateFail = (reason) => {
   toast(t('cb.speedFail', { reason: t('rate.' + reason) }), 4000);
   catchupBar.syncRate();
 };
 
-// 分辨率/音频编码到位后补上 OSD 的画质标签
+
 player.onMediaInfo = (info) => osd.setMediaInfo(info);
-// OSD 上的「距直播延迟」标签取值（只在直播模式有值）
+
 osd.getLatency = () => player.getLiveLatency();
 
-// hls.js 的 playing 可以结束起播；webOS 原生 HLS 的 playing 可能只有一张静止首帧，
-// 必须等媒体时间真实推进。播放途中的 waiting 仍延迟 1.5 秒显示，避免短抖动打扰。
+
+
 player.onStateChange = (ev) => {
   if (ev === 'nativefallback' || ev === 'hlsfallback') {
     beginLoading(true);
   } else if (ev === 'nativereconnect') {
-    // 原生管线播放途中解码出错、播放器自动重载同一地址：只转圈等它接上。
-    // 不启动换台看门狗——重试次数和超时由播放器自己管，超了会走 onError 切备用源。
+    
+    
     loading(true);
   } else if (ev === 'startupmoving' ||
       (ev === 'playing' && (player.activePath() !== 'native' || !zapStarting))) {
@@ -1141,16 +1141,16 @@ player.onStateChange = (ev) => {
 
 $('catchup-bar').addEventListener('click', (e) => catchupBar.onClick(e));
 
-// ---- 全局遥控分发 ----
+
 function onKey(code, event) {
-  // 退出确认对话框优先（最高）
+  
   if (exitDialogOpen) return handleExitKey(code);
 
-  // PIN 与备份浮层
+  
   if (pinEntry.isOpen()) return pinEntry.handleKey(code);
   if (backupDialog.isOpen()) return backupDialog.handleKey(code);
 
-  // 浮层优先
+  
   if (search.isOpen()) return search.handleKey(code);
   if (groupManager.isOpen()) return groupManager.handleKey(code);
   if (playerTuning.isOpen()) return playerTuning.handleKey(code);
@@ -1162,23 +1162,23 @@ function onKey(code, event) {
   if (channelMenu.isOpen()) return channelMenu.handleKey(code);
   if (resumePrompt.isOpen()) return resumePrompt.handleKey(code);
 
-  // 回看控制条：方向键调进度（其余键交回下方常规处理）
+  
   if (player.isCatchup() && catchupBar.handleKey(code)) return true;
 
-  // 数字键
+  
   const d = digitOf(code);
   if (d !== null) {
     pushDigit(d);
     return true;
   }
 
-  // 播放态按键
+  
   switch (code) {
     case KEY.OK:
       openChannelMenu();
       break;
     case KEY.LEFT:
-      // 直播态：切源，单源回退打开频道菜单（回看态左右键已由回看控制条处理）
+      
       if (!switchSource(-1)) openChannelMenu();
       break;
     case KEY.RIGHT:
@@ -1249,12 +1249,12 @@ function openEpgGuide() {
 function toggleFav() {
   if (!app.current) return;
   const added = toggleFavorite(app.current.key);
-  // 收藏上下文里取消了当前台：后续换台退回全频道，避免列表里没有当前台
+  
   if (!added && app.zapMode === 'fav' && !isFavorite(app.current.key)) app.zapMode = 'all';
   toast(added ? t('toast.faved', { name: app.current.name }) : t('toast.unfaved'));
 }
 
-// 退出对话框：鼠标点击支持（Magic Remote 指针）
+
 $('exit-dialog').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
@@ -1262,53 +1262,53 @@ $('exit-dialog').addEventListener('click', (e) => {
   else closeExitDialog();
 });
 
-// ---- 键盘监听 ----
+
 document.addEventListener('keydown', (e) => {
-  player.userUnmute(); // 首次交互后恢复声音（浏览器自动播放策略下曾被静音）
+  player.userUnmute(); 
   const handled = onKey(e.keyCode, e);
   if (handled) {
     e.preventDefault();
     e.stopPropagation();
   }
 });
-// 鼠标点击也算交互（本地浏览器预览时恢复声音）
+
 document.addEventListener('click', () => player.userUnmute());
 
-// ---- 鼠标基本操作 ----
+
 const playerLayer = $('player-layer');
 if (playerLayer) {
-  // 单击画面：无浮层时呼出频道菜单
+  
   playerLayer.addEventListener('click', () => {
     if (!anyOverlayOpen()) openChannelMenu();
   });
-  // 双击画面：切换全屏
+  
   playerLayer.addEventListener('dblclick', () => {
     if (document.fullscreenElement) document.exitFullscreen && document.exitFullscreen();
     else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
   });
-  // 滚轮：无浮层时上下换台
+  
   playerLayer.addEventListener('wheel', (e) => {
     if (anyOverlayOpen()) return;
     e.preventDefault();
     switchByOffset(e.deltaY > 0 ? 1 : -1);
   }, { passive: false });
-  // 右键：回到直播（回看态）
+  
   playerLayer.addEventListener('contextmenu', (e) => {
     if (player.isCatchup()) { e.preventDefault(); returnToLive(); }
   });
 }
 
-// 内置默认源：已全部取消。
+
 //
-// 原先内置的「广东联通」源指向随包打进去的 public/default.m3u，那是一条私人
-// IPTV 网关地址（还带账号 token），不该随包分发；这类网关地址失效也快，内置
-// 反而制造「开箱就播不了」的第一印象。现在首次启动直接弹源管理器让用户自己填。
+
+
+
 //
-// 数组留着不删：以后若要再内置源，下面 boot() 里那套「缺失就补、第一项为主源」
-// 的迁移逻辑不用重写，往这里加一项就行。
+
+
 const DEFAULT_SOURCES = [];
 
-// 把源级 catchup 配置下发给未声明 catchup 的频道及其各源
+
 function applySourceCatchup(src, channels) {
   if (!src || !src.catchup) return;
   for (const ch of channels) {
@@ -1327,15 +1327,15 @@ function applySourceCatchup(src, channels) {
   }
 }
 
-// ---- 在线源回看能力自动探测 ----
-// 在线源（用户自己填的 m3u）几乎都不写 catchup 属性，源管理里也没这个字段，
-// 于是 isCatchupAvailable() 第一道就把回看按钮全挡掉了，只有内置源能回看。
-// 这里的做法：用户展开节目单时静默试一次时移地址，真取到历史分片才认。
-// 时移能力是网关级的（同网关下频道要么都行要么都不行），所以按「源id::host」
-// 缓存并整批套用到该网关的所有频道，一次探测全源受益，不必每个台都探。
+
+
+
+
+
+
 const probingCatchup = new Set();
-// 同一个源里不同频道可能落在不同网关节点上，每个节点都要各探一次；
-// 提示只在该源第一次探到时弹，免得换几个台就弹一遍
+
+
 const catchupNotified = new Set();
 
 function hostOf(url) {
@@ -1346,7 +1346,7 @@ function hostOf(url) {
   }
 }
 
-// 把探测到的模板补进同网关的频道及其备用源，返回新打上标记的频道数
+
 function applyProbedCatchup(host, preset) {
   const days = preset.catchupDays || 7;
   let n = 0;
@@ -1370,9 +1370,9 @@ function applyProbedCatchup(host, preset) {
   return n;
 }
 
-// 用户每次展开节目单都想要当下的结论：上次记为不能回看时，展开就重探一次，
-// 不再干等缓存到期。正常重渲染不带 recheck，重探完写回缓存即可，不会绕成死循环。
-// 同一个网关 10 分钟内最多重探一次，防止反复展开/收起日期栏把请求打满。
+
+
+
 const RECHECK_GAP = 10 * 60 * 1000;
 const lastRecheck = new Map();
 
@@ -1384,8 +1384,8 @@ async function probeChannelCatchup(ch, opts) {
   const key = probeKey(host);
   if (probingCatchup.has(key)) return;
 
-  // 已探过：直接套缓存结果。只有真改了东西才刷新，否则 refreshEpg -> render ->
-  // 又回调到这里，会绕成死循环。
+  
+  
   const cached = getCatchupProbe(key);
   if (cached) {
     if (cached.result) {
@@ -1399,15 +1399,15 @@ async function probeChannelCatchup(ch, opts) {
   probingCatchup.add(key);
   lastRecheck.set(key, Date.now());
   const trace = {
-    // 探测时本机正用 hls.js 从同一网关拉流：浏览器对同一 host 只开 6 条连接，
-    // 分片并行下载可能把它们占满，探测请求只能排队
+    
+    
     busy: !!(player.hls && player.current && hostOf(player.current.url) === host)
   };
   let found = null;
   try {
     found = await probeCatchup(url, { trace });
   } catch (e) {
-    // 探测纯属加分项，失败就当不支持，绝不影响正常看直播
+    
     trace.reason = 'live';
     trace.live = 'net';
     trace.transient = true;
@@ -1422,7 +1422,7 @@ async function probeChannelCatchup(ch, opts) {
     channelMenu.refreshEpg();
     if (epgGuide.isOpen()) epgGuide.render();
   } else if (getCatchupProbe(key)) {
-    // 只为更新状态文字刷新；缓存没写进去（存储满）就别刷，否则 render 又会立刻重探
+    
     channelMenu.refreshEpg();
   }
 }
@@ -1444,7 +1444,7 @@ function probeErrText(e) {
   return t('cu.err.' + e);
 }
 
-// 节目单标题后面的回看探测状态，电视上没法看日志，靠它说清没回看的原因
+
 function catchupNote(ch) {
   const host = hostOf(ch && ch.url);
   if (!host) return '';
@@ -1461,7 +1461,7 @@ function catchupNote(ch) {
   return t('cu.fail', { why }) + probeTail(d);
 }
 
-// 诊断尾巴：各步结果、★=同网关正被 hls.js 占用、时区、总耗时
+
 function probeTail(d) {
   if (!d) return '';
   const parts = (d.steps || []).slice();
@@ -1471,10 +1471,10 @@ function probeTail(d) {
   return parts.length ? ' [' + parts.join(' ') + ']' : '';
 }
 
-// ---- 启动 ----
+
 function boot() {
   app.settings = getSettings();
-  // 睡眠定时器只属于本次会话：重启后必须重新开启，避免一开机就自动关机。
+  
   if (app.settings.sleepMinutes) {
     app.settings.sleepMinutes = 0;
     saveSettings({ sleepMinutes: 0 });
@@ -1484,10 +1484,10 @@ function boot() {
   let sources = getSources();
   let changed = false;
 
-  // 迁移：移除历史内置源（旧版「联通 IPTV」远程源、「央视/卫视自动更新」、已下线的央视/卫视三组，
-  // 以及两代广东电信直连源——网关地址失效快，不再内置）。
-  // default-gd（广东联通）也在其中：它指向 ./default.m3u，而这个文件已不再随包
-  // 分发，留在列表里只会在启动时 404，还不如干脆清掉让用户重新填源。
+  
+  
+  
+  
   const REMOVED_IDS = [
     'default-liantong',
     'cctv-auto',
@@ -1504,7 +1504,7 @@ function boot() {
     changed = true;
   }
 
-  // 迁移：内置源改名后，同步已保存的旧名称（用户自己改过名的不动——这里只对内置 id 生效）
+  
   for (const b of DEFAULT_SOURCES) {
     const s = sources.find((x) => x.id === b.id);
     if (s && s.name !== b.name) {
@@ -1513,8 +1513,8 @@ function boot() {
     }
   }
 
-  // 内置源缺失（首次安装或旧版升级）：补进来。第一项算主源，置顶并设为当前源；
-  // 其余追加到末尾，不动当前活跃源。DEFAULT_SOURCES 现在是空的，这段不会执行。
+  
+  
   DEFAULT_SOURCES.forEach((b, i) => {
     if (sources.some((s) => s.id === b.id)) return;
     if (i === 0) {
@@ -1529,13 +1529,13 @@ function boot() {
 
   const activeId = getActiveSourceId();
   const src = sources.find((s) => s.id === activeId) || sources[0];
-  // 活跃源被清理掉了：把落点回写，避免源管理里「使用中」标记错位
+  
   if (src && src.id !== activeId) setActiveSourceId(src.id);
   const tip = $('empty-tip');
   if (tip) tip.remove();
 
-  // 一个源都没有（首次安装，或旧内置源刚被迁移清掉）：直接把源管理器弹出来。
-  // 不这么做的话用户面对的是纯黑屏，连个能按的东西都没有。
+  
+  
   if (!src) {
     sourceManager.open();
     toast(t('toast.addSourceFirst'), 5000);
@@ -1544,7 +1544,7 @@ function boot() {
   loadSource(src);
 }
 
-// 源添加成功后移除欢迎提示
+
 const origUse = sourceManager.onUseSource;
 sourceManager.onUseSource = (src) => {
   const tip = $('empty-tip');
@@ -1552,11 +1552,11 @@ sourceManager.onUseSource = (src) => {
   origUse(src);
 };
 
-// 应用运行中改了电视系统语言：选择「跟随系统」时即时切换
+
 document.addEventListener('webOSLocaleChange', applyLanguage);
 window.addEventListener('languagechange', applyLanguage);
 
-// 网络状态变化：断网给提示；恢复后自动重连当前频道（挖后台、路由重启等导致的断流常见）
+
 let wasOffline = false;
 window.addEventListener('offline', () => {
   wasOffline = true;
@@ -1568,8 +1568,8 @@ window.addEventListener('online', () => {
   if (!wasOffline) return;
   wasOffline = false;
   toast(t('toast.online'), 2000);
-  // 有频道就强制重连当前台（绕开 isPlayingLive 去重，确保重新起流）；
-  // 一个都没有（源当初就没拉到）则整源重载。
+  
+  
   if (app.channels.length && app.current) {
     liveStartAt = Date.now();
     beginLoading();
@@ -1581,8 +1581,8 @@ window.addEventListener('online', () => {
 });
 function startApp() {
   const s = app.settings;
-  // 旧版把家长 PIN 明文存在 localStorage。启动时一次性迁移成 salt:hash，
-  // 之后本地只剩哈希；校验函数对残留明文仍兼容。
+  
+  
   const storedPin = s ? s.parentalPin : '';
   const migratedPin = migratePin(storedPin);
   if (migratedPin !== storedPin) {

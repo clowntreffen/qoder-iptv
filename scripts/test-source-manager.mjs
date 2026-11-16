@@ -225,7 +225,7 @@ test('native focus and blur synchronize field selection without rebuilding the f
   const f = inputFixture(t);
   const renders = f.renders.length;
   for (const [idx, id, key, value] of [
-    [0, 'src-name', 'name', '中文 source'],
+    [0, 'src-name', 'name', 'Test Source'],
     [1, 'src-m3u', 'm3uUrl', 'https://source.test/list.m3u'],
     [2, 'src-epg', 'epgUrl', 'https://epg.test/guide.xml']
   ]) {
@@ -358,13 +358,13 @@ test('IME confirmation and composing Enter do not finish input', (t) => {
   assert.equal(f.manager.handleKey(65), false);
   assert.equal(f.manager.handleKey(KEY.OK, { code: 'Enter', isComposing: true }), false);
   input.oncompositionstart();
-  input.value = '中文名称';
+  input.value = 'Test Name';
   assert.equal(f.manager.handleKey(KEY.OK, { code: 'Enter' }), false);
   assert.equal(f.manager.handleKey(KEY.BACK), false);
   assert.equal(f.document.activeElement, input);
   input.oncompositionend();
   assert.equal(f.manager.handleKey(KEY.OK, { code: 'Enter' }), true);
-  assert.equal(f.manager.form.name, '中文名称');
+  assert.equal(f.manager.form.name, 'Test Name');
   assert.equal(f.manager.focusIdx, 1);
 });
 

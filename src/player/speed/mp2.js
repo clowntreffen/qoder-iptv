@@ -1,11 +1,11 @@
-// MPEG-1 Layer II（MP2）解码：回看 TS 里的音轨多是 MP2，浏览器自带的解码接口不一定认，倍速时自己解。
+
 //
-// 移植自 jsmpeg 的 src/mp2.js（MIT License, Copyright (c) 2017 Dominic Szablewski），
-// 它又基于 Martin J. Fiedler 的 kjmp2。和原版的区别：
-//   - 直接从 Uint8Array 解一整帧，不走它的环形 BitBuffer；
-//   - 只解 MPEG-1 Layer II，MPEG-2 低采样率和 Layer I/III 交给上层回退；
-//   - 强度立体声子带：量化值两个声道共用，但各自乘自己的比例因子（原版直接抄左声道的结果）；
-//   - 合成滤波累加用浮点，响的片段不会整数溢出。
+
+
+
+
+
+
 
 const BITRATE_V1 = [
   null,
@@ -19,13 +19,13 @@ const BITRATE_V2 = [
   [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
   [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160]
 ];
-// 下标是头里的 version 位：3 = MPEG-1，2 = MPEG-2，0 = MPEG-2.5
+
 const SAMPLE_RATE = [[11025, 12000, 8000], null, [22050, 24000, 16000], [44100, 48000, 32000]];
 
-/**
- * 解析 MPEG 音频帧头（4 字节）。不是合法帧头返回 null。
- * version 用头里的原始位（3 = MPEG-1），layer 是真实层号 1/2/3。
- */
+
+
+
+
 export function parseMpegHeader(u8, p) {
   if (p + 4 > u8.length || u8[p] !== 0xff || (u8[p + 1] & 0xe0) !== 0xe0) return null;
   const b1 = u8[p + 1];
@@ -37,7 +37,7 @@ export function parseMpegHeader(u8, p) {
   const layer = 4 - lbits;
   const bri = b2 >> 4;
   const sri = (b2 >> 2) & 3;
-  // 0 是 free format，帧长没法从头里算，当坏数据
+  
   if (bri === 0 || bri === 15 || sri === 3) return null;
   const bitrate = (version === 3 ? BITRATE_V1 : BITRATE_V2)[layer][bri];
   const sampleRate = SAMPLE_RATE[version][sri];
@@ -69,11 +69,11 @@ export function parseMpegHeader(u8, p) {
   };
 }
 
-/**
- * 把一段裸 MPEG 音频切成整帧。帧头对不上就逐字节往后找同步字；
- * 末尾不够一帧的那截放进 rest，下次 append 拼上。
- * @returns {{frames:Array<{h:object,data:Uint8Array}>, rest:Uint8Array|null}}
- */
+
+
+
+
+
 export function splitMpegFrames(u8) {
   const frames = [];
   const n = u8.length;
@@ -91,14 +91,14 @@ export function splitMpegFrames(u8) {
   return { frames, rest: p < n ? u8.slice(p) : null };
 }
 
-/* ---------------- 量化表（ISO 11172-3 附录 B.2，kjmp2 的压缩写法） ---------------- */
 
-// 每声道码率 → 码率档
+
+
 const LUT1 = [
-  [0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2], // 单声道：32 48 56 64 80 96 112 128 160 192 224 256 320 384
-  [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2] // 立体声：按每声道码率
+  [0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2], 
+  [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2] 
 ];
-// 码率档 × 采样率 → 分配表（高位 64 = 高码率表）| sblimit
+
 const TAB_A = 27 | 64;
 const TAB_B = 30 | 64;
 const TAB_C = 8;
@@ -109,7 +109,7 @@ const LUT2 = [
   [TAB_A, TAB_A, TAB_A],
   [TAB_B, TAB_A, TAB_B]
 ];
-// 分配表 × 子带 → 高 4 位 nbal，低 4 位 LUT4 的行
+
 const LUT3 = [
   [0x44, 0x44, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34],
   [
@@ -117,7 +117,7 @@ const LUT3 = [
     0x31, 0x31, 0x31, 0x31, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20
   ]
 ];
-// 行 × allocation 值 → 量化器编号（从 1 起，0 = 这个子带没分配比特）
+
 const LUT4 = [
   [0, 1, 2, 17],
   [0, 1, 2, 3, 4, 5, 6, 17],
@@ -147,7 +147,7 @@ const QUANT = [
 ];
 const SCALEFACTOR_BASE = [0x02000000, 0x01965fea, 0x01428a30];
 
-// 合成窗（kjmp2 的定点系数，原样照抄）
+
 const SYNTHESIS_WINDOW = [
   0, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -1,
   -1, -1, -1, -1.5, -1.5, -2, -2, -2.5,
@@ -215,7 +215,7 @@ const SYNTHESIS_WINDOW = [
   1, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5
 ];
 
-/** 32 点 DCT，写进 V 环形缓冲 d[dp..dp+63]（kjmp2/jsmpeg 原样照抄） */
+
 function matrixTransform(s, ss, d, dp) {
   let t01, t02, t03, t04, t05, t06, t07, t08, t09, t10, t11, t12,
    t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24,
@@ -356,7 +356,7 @@ function matrixTransform(s, ss, d, dp) {
   d[dp + 15] = t02; d[dp + 16] =  0.0;
 }
 
-/** 按位读，读过头补 0（坏帧不至于抛异常） */
+
 class Bits {
   constructor() {
     this.u8 = null;
@@ -368,7 +368,7 @@ class Bits {
     this.pos = bytePos * 8;
     this.end = u8.length;
   }
-  /** n ≤ 16 */
+  
   read(n) {
     const u8 = this.u8;
     const e = this.end;
@@ -383,10 +383,10 @@ class Bits {
   }
 }
 
-/**
- * 定点反量化，结果约 ±2^15。重建值按标准是 (levels-1-2c)/levels；
- * kjmp2 原式除的是 levels+1，粗量化器（3/5/9 级）会小一截，和 ffmpeg 对比时噪声段只有十几 dB。
- */
+
+
+
+
 function dequant(q, sfi, codes, out) {
   let sf = 0;
   if (sfi !== 63) {
@@ -427,7 +427,7 @@ export class Mp2Decoder {
     this.codes = [0, 0, 0];
   }
 
-  /** 时间轴跳了（拖动、补片）就清滤波器状态，免得把上一段的尾巴混进来 */
+  
   reset() {
     this.V[0].fill(0);
     this.V[1].fill(0);
@@ -457,10 +457,10 @@ export class Mp2Decoder {
     return c;
   }
 
-  /**
-   * 解一帧，1152 个采样写进 L/R 的 [pos, pos+1152)（单声道两边一样）。
-   * 不是 MPEG-1 Layer II 返回 false，L/R 不动。
-   */
+  
+
+
+
   decode(data, L, R, pos) {
     const h = parseMpegHeader(data, 0);
     if (!h || h.version !== 3 || h.layer !== 2) return false;
@@ -562,7 +562,7 @@ export class Mp2Decoder {
             }
             const dst = c === 0 ? L : R;
             for (let j = 0; j < 32; j++) {
-              // jsmpeg 的窗系数是 kjmp2 的一半、极性也反了：这里乘回来，和 ffmpeg 解出来的对齐
+              
               const v = U[j] / -1073709056;
               dst[out + j] = v > 1 ? 1 : v < -1 ? -1 : v;
             }

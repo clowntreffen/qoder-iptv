@@ -1,4 +1,4 @@
-// 全屏 EPG 节目指南：日期切换 × 频道 × 节目，支持选中过往节目回看
+
 import { KEY } from '../core/keys.js';
 import { epgStore } from '../core/epgStore.js';
 import { isCatchupAvailable } from '../core/catchup.js';
@@ -6,15 +6,15 @@ import { fmtTime, fmtDayLabel, esc } from '../core/util.js';
 import { isReminder, toggleReminder } from '../core/reminders.js';
 import { t, getLang } from '../core/i18n.js';
 
-// 日期范围：前 7 天 .. 今天 .. 后 2 天
+
 const DAY_OFFSETS = [-7, -6, -5, -4, -3, -2, -1, 0, 1, 2];
 
 export class EpgGuide {
   constructor(el) {
     this.el = el;
     this.channels = [];
-    this.zone = 1; // 0=日期 1=频道 2=节目
-    this.dayPos = 7; // 指向 DAY_OFFSETS 中"今天"
+    this.zone = 1; 
+    this.dayPos = 7; 
     this.chanIdx = 0;
     this.progIdx = 0;
     this.progList = [];
@@ -23,12 +23,12 @@ export class EpgGuide {
     this.onPlayCatchup = null;
     this.onClose = null;
     this.onToast = null;
-    // 渲染时回调，用于探测该频道所在网关支不支持回看（见 main.js）
+    
     this.onProbeCatchup = null;
-    // 上次探测的是哪个台：打开节目单或换台时向 main.js 要一次重探
+    
     this._probeChKey = null;
 
-    // 鼠标：事件委托（点击选择/进入）
+    
     this.el.addEventListener('click', (e) => this._onClick(e));
   }
 
@@ -55,7 +55,7 @@ export class EpgGuide {
   }
 
   open(channels, currentKey) {
-    // 保留有 EPG 匹配名的频道（DIYP 按名匹配，几乎都有）
+    
     this.channels = channels.filter((c) => c.epgName || c.tvgId);
     if (!this.channels.length) this.channels = channels;
     this.dayPos = 7;
@@ -82,7 +82,7 @@ export class EpgGuide {
     this.progIdx = 0;
   }
 
-  // 异步 EPG 到达时重新查询当前频道/日期，按开始时间保留节目焦点，不切换导航区。
+  
   refreshEpg() {
     if (!this.isOpen()) return;
     const focused = this.progList[this.progIdx];
@@ -105,12 +105,12 @@ export class EpgGuide {
     if (f && f.scrollIntoView) f.scrollIntoView({ block: 'center' });
   }
 
-  // 骨架只建一次，三个列表各自更新。
-  // 原来每次 render() 都把整个面板 innerHTML 重写一遍，而频道列可以有上千行：
-  // 在节目列里按一下上/下键（只动了一个焦点）也要把上千个频道 div 拆了重建。
-  // 电视的弱 CPU 上这直接表现为按键延迟。
+  
+  
+  
+  
   _ensureSkeleton() {
-    // 标题是建骨架时写死的文案，切换语言后必须重建
+    
     if (this._skeletonLang === getLang() && this.el.querySelector('#eg-chan-col')) return;
     this.el.innerHTML = `
       <div class="eg-head">
@@ -123,7 +123,7 @@ export class EpgGuide {
       </div>
       <div class="eg-detail" id="eg-detail"></div>`;
     this._skeletonLang = getLang();
-    this._chanSig = null; // 骨架重建后频道列需强制重绘
+    this._chanSig = null; 
     this._chanArr = null;
     this._paintedAct = null;
     this._paintedFoc = null;
@@ -141,8 +141,8 @@ export class EpgGuide {
     }).join('');
   }
 
-  // 频道列：内容（频道集合 + 语言）没变就只改高亮类，不重建 DOM。
-  // 条目里只有台号和台名，与 EPG 数据无关，所以节目单到达也不需要重建它。
+  
+  
   _renderChans() {
     const el = this.el.querySelector('#eg-chan-col');
     if (!el) return;
@@ -156,11 +156,11 @@ export class EpgGuide {
             `<div class="eg-chan" data-role="chan" data-idx="${i}">${esc(String(ch.chno || ch.index))}. ${esc(ch.name)}</div>`
         )
         .join('');
-      this._paintedAct = null; // innerHTML 抹掉了所有类，下面按当前状态重新点亮
+      this._paintedAct = null; 
       this._paintedFoc = null;
     }
-    // 高亮只动「变化的那两个条目」，不遍历全列：几千行上逐个 toggle 一遍
-    // 同样是几千次 DOM 操作，而每次按键真正改变状态的最多两行。
+    
+    
     const items = el.children;
     const set = (i, cls, on) => {
       const n = i >= 0 && items[i];
@@ -183,8 +183,8 @@ export class EpgGuide {
     const el = this.el.querySelector('#eg-prog-col');
     if (!el) return;
     const ch = this._curChannel();
-    // 顺手探一次回看能力（去重和缓存在 main.js 那侧做）；打开节目单或换台时要求重探，
-    // 上次结论是不可回看时才会真的发请求
+    
+    
     const chChanged = ch && ch.key !== this._probeChKey;
     this._probeChKey = ch ? ch.key : null;
     if (ch && !ch.catchup && this.onProbeCatchup) {
@@ -274,7 +274,7 @@ export class EpgGuide {
 
   _move(dir) {
     if (this.zone === 0) {
-      // 日期区上下 -> 切到频道区
+      
       if (dir === 1) { this.zone = 1; this.render(); }
       return;
     }
@@ -297,10 +297,10 @@ export class EpgGuide {
       this.dayPos = Math.min(n - 1, Math.max(0, this.dayPos + dir));
       this._loadProg();
     } else if (this.zone === 1) {
-      if (dir === 1) this.zone = 2; // 频道 -> 节目
-      else this.zone = 0; // 频道 -> 日期
+      if (dir === 1) this.zone = 2; 
+      else this.zone = 0; 
     } else if (this.zone === 2) {
-      if (dir === -1) this.zone = 1; // 节目 -> 频道
+      if (dir === -1) this.zone = 1; 
     }
     this.render();
   }
@@ -319,7 +319,7 @@ export class EpgGuide {
         if (this.onPlayCatchup) { this.onPlayCatchup(ch, p); this.close(); }
       }
     } else {
-      // 在频道区确认 -> 直接播直播
+      
       if (this.onPlayLive) { this.onPlayLive(ch); this.close(); }
     }
   }

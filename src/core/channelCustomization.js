@@ -1,5 +1,5 @@
-// 频道级自定义（按 ch.key，跨源刷新稳定）：改名、单频道隐藏、EPG 分钟偏移。
-// 源刷新重建 ch 对象后重放即可：只读 override，不写回源的原始字段。
+
+
 
 export function normalizeOverrides(raw) {
   const out = {};
@@ -23,7 +23,7 @@ export function getOverride(map, key) {
   return ov && typeof ov === 'object' ? ov : null;
 }
 
-// patch: { name?, hidden?, epgOffsetMinutes? }；null/''/false 删除该字段。
+
 export function patchOverride(map, key, patch) {
   if (!key) return map;
   const next = { ...((map && map[key]) || {}) };
@@ -45,8 +45,8 @@ export function clearOverride(map, key) {
   return out;
 }
 
-// 重放到解析后的频道：改名 → ch.name；隐藏 → ch.customHidden；偏移 → ch.epgOffsetMinutes。
-// 幂等前提：每次都对 freshly parsed 的 ch 调用（override 删掉后下次解析自然复原）。
+
+
 export function applyChannelOverrides(channels, map) {
   if (!channels || !channels.length) return channels || [];
   if (!map) return channels;

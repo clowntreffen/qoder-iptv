@@ -1,8 +1,8 @@
-// 生成 webOS 应用图标：从 assets/app-icon-src.png 裁出图标主体后缩放输出
+
 //   icon.png      80x80
 //   largeIcon.png 130x130
-// 不依赖任何第三方库，使用 Node 内置 zlib 手写 PNG 解码/编码。
-// 运行：node scripts/gen-icons.mjs  （已挂到 npm 的 prebuild / predev）
+
+
 import { deflateSync, inflateSync } from 'zlib';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -12,7 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const SRC = resolve(ROOT, 'assets/app-icon-src.png');
 
-/* ---------------- PNG 编解码基础 ---------------- */
+
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
@@ -69,9 +69,9 @@ function paeth(a, b, c) {
   return pb <= pc ? b : c;
 }
 
-// 解码 PNG，返回 { width, height, rgba }。仅支持 8bit 非隔行的 RGB/RGBA/灰度。
+
 function decodePNG(buf) {
-  if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error('不是 PNG 文件');
+  if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error('not a PNG file');
   let pos = 8;
   let width = 0;
   let height = 0;
@@ -88,8 +88,8 @@ function decodePNG(buf) {
       height = data.readUInt32BE(4);
       depth = data[8];
       colorType = data[9];
-      if (depth !== 8) throw new Error('仅支持 8bit 位深，当前为 ' + depth);
-      if (data[12] !== 0) throw new Error('不支持隔行 PNG');
+      if (depth !== 8) throw new Error('only 8-bit depth supported, got ' + depth);
+      if (data[12] !== 0) throw new Error('interlaced PNG unsupported');
     } else if (type === 'IDAT') {
       idat.push(data);
     } else if (type === 'IEND') {
@@ -99,7 +99,7 @@ function decodePNG(buf) {
   }
 
   const channels = { 0: 1, 2: 3, 4: 2, 6: 4 }[colorType];
-  if (!channels) throw new Error('不支持的颜色类型 ' + colorType);
+  if (!channels) throw new Error('unsupported color type ' + colorType);
 
   const raw = inflateSync(Buffer.concat(idat));
   const stride = width * channels;
@@ -123,7 +123,7 @@ function decodePNG(buf) {
     }
   }
 
-  // 统一展开成 RGBA
+  
   const rgba = Buffer.alloc(width * height * 4);
   for (let i = 0, n = width * height; i < n; i++) {
     const s = i * channels;
@@ -146,11 +146,11 @@ function decodePNG(buf) {
   return { width, height, rgba };
 }
 
-/* ---------------- 图标加工 ---------------- */
 
-// 自动定位图标主体：只统计"有颜色"的像素（饱和度足够高）。
-// 素材四周是浅灰底且右下角带白灰色水印，它们饱和度都很低，因此不会被计入，
-// 裁出主体的同时水印也就被去掉了。
+
+
+
+
 function findSubjectBox({ width, height, rgba }) {
   let x0 = width;
   let y0 = height;
@@ -165,8 +165,8 @@ function findSubjectBox({ width, height, rgba }) {
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       const sat = max === 0 ? 0 : (max - min) / max;
-      // 阈值取得偏高，好让主体边缘的抗锯齿过渡像素（紫/蓝与浅灰的混色）不被计入，
-      // 否则裁剪框会比圆角方块大一圈，圆角外的浅灰底就会露出来
+      
+      
       if (sat > 0.5 && max > 60) {
         if (x < x0) x0 = x;
         if (y < y0) y0 = y;
@@ -176,7 +176,7 @@ function findSubjectBox({ width, height, rgba }) {
     }
   }
   if (x1 < 0) return { x: 0, y: 0, size: Math.min(width, height) };
-  // 收成正方形（以较长边为准并居中），保证图标不变形
+  
   const w = x1 - x0 + 1;
   const h = y1 - y0 + 1;
   const size = Math.max(w, h);
@@ -187,7 +187,7 @@ function findSubjectBox({ width, height, rgba }) {
   return { x, y, size };
 }
 
-// 面积平均缩放（box filter）：把源图的 box 区域缩到 out×out
+
 function resizeArea(src, box, out) {
   const dst = Buffer.alloc(out * out * 4);
   const scale = box.size / out;
@@ -224,7 +224,7 @@ function resizeArea(src, box, out) {
   return dst;
 }
 
-// 圆角外区域设为透明（4x4 超采样做边缘抗锯齿），避免素材四角的浅灰底露出来
+
 function applyRoundedAlpha(rgba, size, radiusRatio = 0.22) {
   const r = size * radiusRatio;
   const SS = 4;
@@ -235,7 +235,7 @@ function applyRoundedAlpha(rgba, size, radiusRatio = 0.22) {
         for (let sx = 0; sx < SS; sx++) {
           const px = x + (sx + 0.5) / SS;
           const py = y + (sy + 0.5) / SS;
-          // 到圆角矩形的最近圆心距离判定
+          
           const cx = Math.min(Math.max(px, r), size - r);
           const cy = Math.min(Math.max(py, r), size - r);
           const dx = px - cx;
@@ -250,17 +250,17 @@ function applyRoundedAlpha(rgba, size, radiusRatio = 0.22) {
   return rgba;
 }
 
-/* ---------------- 主流程 ---------------- */
+
 
 function main() {
   if (!existsSync(SRC)) {
-    console.error('[gen-icons] 缺少图标素材：assets/app-icon-src.png');
+    console.error('[gen-icons] missing icon asset: assets/app-icon-src.png');
     process.exit(1);
   }
   const src = decodePNG(readFileSync(SRC));
   const box = findSubjectBox(src);
   console.log(
-    `[gen-icons] 素材 ${src.width}x${src.height}，裁出主体 ${box.size}x${box.size} @ (${box.x},${box.y})`
+    `[gen-icons] asset ${src.width}x${src.height}, cropped subject ${box.size}x${box.size} @ (${box.x},${box.y})`
   );
 
   for (const [file, size] of [
@@ -269,7 +269,7 @@ function main() {
   ]) {
     const rgba = applyRoundedAlpha(resizeArea(src, box, size), size);
     writeFileSync(resolve(ROOT, file), encodePNG(size, size, rgba));
-    console.log(`[gen-icons] ${file} (${size}x${size}) 已生成`);
+    console.log(`[gen-icons] ${file} (${size}x${size}) generated`);
   }
 }
 

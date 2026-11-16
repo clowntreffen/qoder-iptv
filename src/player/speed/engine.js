@@ -1,12 +1,12 @@
-// 倍速引擎（路线 A）：webOS 的 <video> 改 playbackRate 不生效，就让解码器「以为」自己在 1× 播。
+
 //
-//   视频：append 进 MSE 的视频 init 段，把 mdhd.timescale 乘 S。同样的刻度折成秒变短 S 倍，
-//         解码器按 1× 走，画面就快了 S 倍。原始媒体时间 = 内容时间 / S。
-//   声音：音频 SourceBuffer 换成假的，数据自己解码 → WSOLA 变速不变调 → Web Audio 跟着画面播。
-//   时间：在 video 实例上盖一层 currentTime/duration/buffered…，hls.js 和界面看到的全是内容时间，
-//         它们不需要知道倍速这回事。
+
+
+
+
+
 //
-// 只在 hls.attachMedia 那一下把 window.MediaSource 换成子类，别处（原生 mp4、其它播放器）不受影响。
+
 import { toU8, hasMoov, rewriteVideoInit, parseAudioInit, parseFragments } from './isobmff.js';
 import { splitMpegFrames } from './mp2.js';
 import { AudioPipeline, detectAudioPath, primeAudio } from './audio.js';
@@ -22,7 +22,7 @@ function protoDesc(name) {
 
 let capPromise = null;
 
-/** 本机能不能用倍速引擎：结果缓存，整个应用只测一次 */
+
 export function detectSpeed() {
   if (capPromise) return capPromise;
   capPromise = (async () => {
@@ -32,7 +32,7 @@ export function detectSpeed() {
         const d = protoDesc(k);
         if (!d || !d.get) return { ok: false, reason: 'no-shim' };
       }
-      // 原生类能不能继承、EventTarget 能不能 new：老内核两样都可能不行
+      
       class Probe extends window.MediaSource {}
       new Probe();
       new EventTarget();
@@ -46,7 +46,7 @@ export function detectSpeed() {
   return capPromise;
 }
 
-/** addSourceBuffer 的 mime 归类：audio / video / muxed（一条轨里音视频都有，没法拆） */
+
 export function classify(mime) {
   const m = String(mime || '').toLowerCase();
   if (m.indexOf('audio/') === 0) return 'audio';
@@ -56,7 +56,7 @@ export function classify(mime) {
   return 'video';
 }
 
-/** 包一层真视频 SourceBuffer：时间进出都乘除 S，init 段改刻度 */
+
 class VideoSB {
   constructor(real, eng) {
     this.__real = real;
@@ -102,7 +102,7 @@ class VideoSB {
       if (!r) {
         this._eng.fail('no-video');
       } else {
-        // 刻度太小（比如 25）乘完取整会偏，偏多了音画对不上，宁可回退
+        
         if (Math.abs(r.scale / this._eng.S - 1) > 0.002) this._eng.fail('timescale');
         u8 = r.data;
       }
@@ -126,16 +126,16 @@ class VideoSB {
   }
 }
 
-/**
- * 假音频 SourceBuffer：hls.js 照常往里 append/remove，数据转给 AudioPipeline。
- * 事件顺序照规范来（updatestart → update → updateend，全异步），hls.js 的队列靠这个推进。
- *
- * 两种输入：
- *   audio/mp4  = fMP4 片段，时间戳在 tfdt 里；
- *   audio/mpeg = 裸 MPEG 音频帧（回看 TS 里的 MP2），没有时间戳。照 MSE 对这类字节流的规定，
- *                mode 固定 sequence：每帧放在 timestampOffset，放完 timestampOffset 顺延到帧尾。
- *                hls.js 只在新分片开头、且差距超过 0.1 秒时才改它（见 buffer-controller）。
- */
+
+
+
+
+
+
+
+
+
+
 export class FakeAudioSB extends EventTarget {
   constructor(eng, mime) {
     super();
@@ -156,7 +156,7 @@ export class FakeAudioSB extends EventTarget {
   get timestampOffset() {
     return this._tso;
   }
-  // 裸流下 hls.js 改 offset 就是时间轴跳了（拖动/切档），上一段剩下的半帧接不上，扔掉
+  
   set timestampOffset(v) {
     this._tso = v;
     if (this.raw) this._carry = null;
@@ -183,7 +183,7 @@ export class FakeAudioSB extends EventTarget {
       try {
         if (!this._gone && !this._eng.dead) job();
       } catch (err) {
-        // 解析不了就整体回退 1×；不往 hls.js 报错，免得它先去折腾恢复
+        
         this._eng.fail('audio-parse');
       }
       this.updating = false;
@@ -193,7 +193,7 @@ export class FakeAudioSB extends EventTarget {
   }
   appendBuffer(data) {
     let u8 = toU8(data);
-    // 拷一份：hls.js 不保证 append 完之后这块内存不被复用
+    
     u8 = this._carry ? concat(this._carry, u8) : u8.slice();
     this._carry = null;
     this._run(() => (this.raw ? this._appendRaw(u8) : this._append(u8)));
@@ -232,7 +232,7 @@ export class FakeAudioSB extends EventTarget {
       }
       this._info = info;
       eng.audio.setInit(info);
-      // init 后面可能直接跟着媒体段
+      
       if (!readsMoof(u8)) return;
     }
     const info = this._info;
@@ -257,7 +257,7 @@ export class FakeAudioSB extends EventTarget {
   abort() {
     this._carry = null;
   }
-  /** 内存兜底丢了一段：buffered 跟着缩，hls.js 发现缺了会重新拉 */
+  
   _evicted(a, b) {
     this._ranges = removeRange(this._ranges, a, b + 0.001);
   }
@@ -275,7 +275,7 @@ function concat(a, b) {
   return out;
 }
 
-/** 数据里有没有 moof（只看顶层 box 类型，不解析） */
+
 function readsMoof(u8) {
   for (let p = 0; p + 8 <= u8.length; ) {
     const size = ((u8[p] << 24) | (u8[p + 1] << 16) | (u8[p + 2] << 8) | u8[p + 3]) >>> 0;
@@ -287,11 +287,11 @@ function readsMoof(u8) {
 }
 
 export class SpeedEngine {
-  /**
-   * @param {HTMLVideoElement} video
-   * @param {number} speed
-   * @param {'webcodecs'|'decodeaudio'} path
-   */
+  
+
+
+
+
   constructor(video, speed, path) {
     this.video = video;
     this.S = speed;
@@ -315,7 +315,7 @@ export class SpeedEngine {
     this._install();
   }
 
-  /** 接管 hls 实例：之后每次 attachMedia（包括 recoverMediaError 里那次）都用子类 MediaSource */
+  
   attach(hls) {
     const orig = hls.attachMedia;
     hls.attachMedia = (...args) => this.withMediaSource(() => orig.apply(hls, args));
@@ -365,19 +365,19 @@ export class SpeedEngine {
 
   _createAudioSB(mime) {
     if (this.audioSB) this.audioSB._detach();
-    // 新 MediaSource / 换轨：旧 PCM 和新时间轴未必对得上，清掉重来
+    
     this.audio.remove(0, Infinity);
     this.audioSB = new FakeAudioSB(this, mime);
     return this.audioSB;
   }
 
-  /** 在 video 实例上盖属性；卸载时 delete 掉就露出原型上的原生实现 */
+  
   _install() {
     const v = this.video;
     const S = this.S;
     const d = {};
     for (const k of SHIM_KEYS) d[k] = protoDesc(k);
-    // 真实速率必须是 1：之前原生倍速可能改过
+    
     try {
       d.playbackRate.set.call(v, 1);
       d.defaultPlaybackRate.set.call(v, 1);
@@ -391,7 +391,7 @@ export class SpeedEngine {
     def('duration', () => d.duration.get.call(v) * S, undefined);
     def('buffered', () => scaleRanges(d.buffered.get.call(v), S), undefined);
     def('seekable', () => scaleRanges(d.seekable.get.call(v), S), undefined);
-    // hls.js 的 ABR 按 playbackRate 估算消耗速度，报 S 正好；写入一律忽略
+    
     def('playbackRate', () => S, () => {});
     def('defaultPlaybackRate', () => S, () => {});
     this._shimmed = true;
@@ -403,7 +403,7 @@ export class SpeedEngine {
     this._shimmed = false;
   }
 
-  /** 只报一次；异步回调，免得在 hls.js 的调用栈里直接把它销毁 */
+  
   fail(reason) {
     if (this.failed || this.dead) return;
     this.failed = reason;
@@ -420,7 +420,7 @@ export class SpeedEngine {
     return null;
   }
 
-  /** 诊断数据：音频统计 + 本次倍速期间的丢帧比例 */
+  
   stats() {
     const s = Object.assign({ speed: this.S }, this.audio.stats);
     const q = this._quality();

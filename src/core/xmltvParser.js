@@ -1,11 +1,11 @@
-// XMLTV EPG 解析
-// 时间格式：YYYYMMDDHHMMSS +ZZZZ（时区可选）
+
+
 import { proxied } from './net.js';
 
-// 解析 XMLTV 时间到 UTC 毫秒
+
 export function parseXmltvTime(str) {
   if (!str) return NaN;
-  // 例：20240611183000 +0800
+  
   const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\s*([+-]\d{4}))?/.exec(str.trim());
   if (!m) return NaN;
   const [, Y, Mo, D, H, Mi, S, tz] = m;
@@ -13,7 +13,7 @@ export function parseXmltvTime(str) {
   if (tz) {
     const sign = tz[0] === '-' ? -1 : 1;
     const offMin = sign * (parseInt(tz.slice(1, 3), 10) * 60 + parseInt(tz.slice(3, 5), 10));
-    ts -= offMin * 60000; // 转为 UTC
+    ts -= offMin * 60000; 
   }
   return ts;
 }
@@ -23,12 +23,12 @@ function textOf(el, tag) {
   return node ? (node.textContent || '').trim() : '';
 }
 
-/**
- * 解析 XMLTV 文本
- * @param {string} xmlText
- * @returns {{ channels: Map<string,{id,name,icon}>, programmes: Map<string,Array> }}
- * programmes: channelId -> [{ start, stop, title, desc }]（按 start 升序）
- */
+
+
+
+
+
+
 export function parseXMLTV(xmlText) {
   const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
   const channels = new Map();
@@ -63,7 +63,7 @@ export function parseXMLTV(xmlText) {
     programmes.get(channelId).push(item);
   }
 
-  // 按开始时间排序
+  
   for (const list of programmes.values()) {
     list.sort((a, b) => a.start - b.start);
   }
@@ -71,7 +71,7 @@ export function parseXMLTV(xmlText) {
   return { channels, programmes };
 }
 
-// 拉取并解析（支持 gzip 由浏览器自动处理）
+
 export async function fetchXMLTV(url, timeoutMs = 30000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

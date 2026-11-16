@@ -2,6 +2,12 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.66
+- Removed the remaining Chinese characters from the repository: source, comments, tests, docs, logs and generator output are now English-only.
+- Translated the last Chinese test names and assertion messages to English.
+- Chinese channel-name patterns that are still required to match real IPTV playlists are stored as Unicode escapes, so EPG normalization for Chinese channels keeps working without Chinese glyphs in the tree.
+- Fixed the dev-server config and the warm-gate test harness after the cleanup.
+
 ## 1.1.65
 - Added per-channel customization: press `MENU` on a channel to rename it, hide it, shift its EPG by up to ±120 minutes, or clear the customization. Renames/hides/offsets survive source refreshes; hidden channels are skipped by zapping, search and the guide but stay listed (marked) in the channel menu so they can be restored.
 - The UI is now fixed to English: the Chinese dictionary, language setting and locale-based switching were removed, and existing settings migrate to English.

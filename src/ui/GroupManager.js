@@ -1,6 +1,6 @@
-// 分组显示管理：对「当前源」逐个分组设置显示/隐藏。
-// 隐藏的分组不出现在频道菜单，也不参与上下键换台和数字换台。
-// 设置按源保存（source.hiddenGroups），与 deadUrls 同一套持久化路径。
+
+
+
 import { KEY } from '../core/keys.js';
 import { esc } from '../core/util.js';
 import { t, groupLabel } from '../core/i18n.js';
@@ -8,23 +8,23 @@ import { t, groupLabel } from '../core/i18n.js';
 export class GroupManager {
   constructor(el) {
     this.el = el;
-    this.groups = []; // [{ name, count }] 当前源的全部分组（含已隐藏的，否则没法再打开）
-    this.hidden = new Set(); // 已隐藏的分组名（hide 模式）
-    this.locked = new Set(); // 已锁的分组名（lock 模式）
+    this.groups = []; 
+    this.hidden = new Set(); 
+    this.locked = new Set(); 
     this.mode = 'hide'; // 'hide' | 'lock'
     this.srcName = '';
     this.focusIdx = 0;
-    this.msg = ''; // 行内提示（如「至少保留一个分组」）
+    this.msg = ''; 
     this.dirty = false;
 
-    this.onApply = null; // (names: string[], mode: 'hide'|'lock') => void，关闭时若有改动则回调
+    this.onApply = null; 
     this.onClose = null;
 
     this.el.addEventListener('click', (e) => this._onClick(e));
   }
 
   _onClick(e) {
-    // 鼠标用户没有返回键：点面板外的遮罩区即关闭（关闭时统一提交改动）
+    
     if (!e.target.closest('.panel')) {
       this.close();
       return;
@@ -42,12 +42,12 @@ export class GroupManager {
     this._confirm();
   }
 
-  /**
-   * @param {Array<{name:string,count:number}>} groups 当前源的全部分组（隐藏过滤前）
-   * @param {Array<string>} names hide 模式=已隐藏的分组名；lock 模式=已锁的分组名
-   * @param {string} srcName 当前源名称，仅用于标题提示
-   * @param {'hide'|'lock'} mode 面板模式
-   */
+  
+
+
+
+
+
   open(groups, names, srcName, mode = 'hide') {
     this.groups = groups || [];
     this.mode = mode === 'lock' ? 'lock' : 'hide';
@@ -61,7 +61,7 @@ export class GroupManager {
     this.render();
   }
 
-  // 行数 = 分组数 + 末尾「全部显示」按钮
+  
   _rowCount() {
     return this.groups.length + 1;
   }
@@ -110,7 +110,7 @@ export class GroupManager {
 
   _confirm() {
     const lockMode = this.mode === 'lock';
-    // 末行：一键恢复/解锁全部分组
+    
     if (this.focusIdx >= this.groups.length) {
       const set = lockMode ? this.locked : this.hidden;
       if (set.size) {
@@ -136,7 +136,7 @@ export class GroupManager {
       this.dirty = true;
       this.msg = '';
     } else {
-      // 不允许把最后一个可见分组也隐藏掉，否则频道列表会整个空掉
+      
       if (this._visibleCount() <= 1) {
         this.msg = t('gm.keepOne');
         this.render();
@@ -173,7 +173,7 @@ export class GroupManager {
     return true;
   }
 
-  // 关闭即提交：改动在这里一次性回调，避免每按一下都重排频道
+  
   close() {
     this.el.classList.add('hidden');
     if (this.dirty && this.onApply) {

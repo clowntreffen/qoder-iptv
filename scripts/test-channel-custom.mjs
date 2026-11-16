@@ -1,5 +1,5 @@
 // Run: node --test scripts/test-channel-custom.mjs
-// 频道自定义：按 ch.key 持久化改名/隐藏/EPG 偏移，编辑器键控，菜单 MENU 入口与隐藏标记。
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -42,9 +42,9 @@ class FakeEl {
 
 const CH = { key: 'ch:g|Alpha', name: 'Alpha', group: 'News' };
 
-// ---- 核心数据 ----
 
-test('normalize: 只接受非空名字、hidden=true、非零有限偏移', () => {
+
+test('normalize: accepts non-empty name, hidden=true, non-zero finite offset', () => {
   assert.deepEqual(normalizeOverrides(null), {});
   assert.deepEqual(normalizeOverrides({ a: null, b: 3, c: [] }), {});
   assert.deepEqual(
@@ -57,7 +57,7 @@ test('normalize: 只接受非空名字、hidden=true、非零有限偏移', () =
   );
 });
 
-test('patch/clear：字段级更新，空值删除，整条清空', () => {
+test('patch/clear: field-level update, blank deletes, null clears', () => {
   let map = {};
   map = patchOverride(map, CH.key, { name: 'Beta', hidden: true, epgOffsetMinutes: 15 });
   assert.deepEqual(getOverride(map, CH.key), { name: 'Beta', hidden: true, epgOffsetMinutes: 15 });
@@ -73,7 +73,7 @@ test('patch/clear：字段级更新，空值删除，整条清空', () => {
   assert.equal(getOverride(map, CH.key), null);
 });
 
-test('applyChannelOverrides：改名、customHidden、EPG 偏移重放到频道对象', () => {
+test('applyChannelOverrides: rename, customHidden and EPG offset applied to channel object', () => {
   const channels = [
     { key: 'a', name: 'A', group: 'G' },
     { key: 'b', name: 'B', group: 'G' }
@@ -89,16 +89,16 @@ test('applyChannelOverrides：改名、customHidden、EPG 偏移重放到频道�
   assert.equal(channels[1].epgOffsetMinutes, 30);
 });
 
-test('storage：channelOverrides 往返且非法值不落盘', () => {
+test('storage: channelOverrides round-trips, invalid values not persisted', () => {
   setChannelOverrides({ a: { name: 'A', hidden: true }, b: { name: '', hidden: 'yes', epgOffsetMinutes: 'x' } });
   assert.deepEqual(getChannelOverrides(), { a: { name: 'A', hidden: true } });
   localStorage.setItem('iptv:channelOverrides', 'not-json');
   assert.deepEqual(getChannelOverrides(), {});
 });
 
-// ---- 编辑器 ----
 
-test('编辑器：OK 进入改名并提交；隐藏切换；偏移左右调档；重置', () => {
+
+test('editor: OK enters rename and commits; hidden toggle; offset steps; reset', () => {
   const el = new FakeEl();
   const ed = new ChannelEditor(el);
   setChannelOverrides({});
@@ -107,7 +107,7 @@ test('编辑器：OK 进入改名并提交；隐藏切换；偏移左右调档�
   ed.open(CH);
   assert.equal(ed.focusIdx, 0);
 
-  // 改名：OK 进入输入态，草稿为当前名；OK 提交
+  
   ed.handleKey(KEY.OK);
   assert.equal(ed.entering, true);
   assert.equal(ed.draft, 'Alpha');
@@ -117,13 +117,13 @@ test('编辑器：OK 进入改名并提交；隐藏切换；偏移左右调档�
   assert.equal(getOverride(getChannelOverrides(), CH.key).name, 'New Name');
   assert.equal(changes, 1);
 
-  // 隐藏：第 2 行 OK
+  
   ed.focusIdx = 1;
   ed.handleKey(KEY.OK);
   assert.equal(getOverride(getChannelOverrides(), CH.key).hidden, true);
   assert.equal(changes, 2);
 
-  // 偏移：第 3 行，右键 +15，左键回 0
+  
   ed.focusIdx = 2;
   ed.handleKey(KEY.RIGHT);
   assert.equal(getOverride(getChannelOverrides(), CH.key).epgOffsetMinutes, 15);
@@ -131,14 +131,14 @@ test('编辑器：OK 进入改名并提交；隐藏切换；偏移左右调档�
   assert.equal(getOverride(getChannelOverrides(), CH.key).epgOffsetMinutes, undefined);
   assert.equal(changes, 4);
 
-  // 重置：第 4 行
+  
   ed.focusIdx = 3;
   ed.handleKey(KEY.OK);
   assert.equal(getOverride(getChannelOverrides(), CH.key), null);
   assert.equal(changes, 5);
 });
 
-test('编辑器：Back 在输入态取消，关闭后清空当前频道；XSS 文案被转义', () => {
+test('editor: Back cancels input, close clears channel; XSS text escaped', () => {
   const el = new FakeEl();
   const ed = new ChannelEditor(el);
   setChannelOverrides({});
@@ -149,7 +149,7 @@ test('编辑器：Back 在输入态取消，关闭后清空当前频道；XSS �
   assert.match(el.innerHTML, /&lt;b&gt;bold&lt;\/b&gt;/);
   assert.doesNotMatch(el.innerHTML, /<b>bold<\/b>/);
 
-  ed.handleKey(KEY.BACK); // 输入态 Back = 取消，不提交
+  ed.handleKey(KEY.BACK); 
   assert.equal(ed.entering, false);
   assert.equal(getOverride(getChannelOverrides(), CH.key), null);
 
@@ -158,9 +158,9 @@ test('编辑器：Back 在输入态取消，关闭后清空当前频道；XSS �
   assert.equal(ed.ch, null);
 });
 
-// ---- 菜单入口 ----
 
-test('ChannelMenu：MENU 打开编辑回调，不再切收藏；INFO/YELLOW 仍切收藏', () => {
+
+test('ChannelMenu: MENU opens editor callback instead of fav toggle; INFO/YELLOW still toggles fav', () => {
   const cm = Object.create(ChannelMenu.prototype);
   cm.col = 1; // COL_CHAN
   cm.groupIdx = 0;
@@ -182,7 +182,7 @@ test('ChannelMenu：MENU 打开编辑回调，不再切收藏；INFO/YELLOW 仍�
   assert.deepEqual(edits, [CH.key]);
 });
 
-test('ChannelMenu：隐藏的频道仍在菜单列出并带 hidden-entry 标记', () => {
+test('ChannelMenu: hidden channels stay listed with hidden-entry marker', () => {
   const cm = Object.create(ChannelMenu.prototype);
   cm.currentKey = 'x';
   const html = cm._channelItemHtml({ ...CH, customHidden: true }, 0);

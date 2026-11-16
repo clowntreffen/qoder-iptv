@@ -1,11 +1,11 @@
-// 播放器参数面板：把 hls.js 里几个真正有杠杆的参数开放给用户，在真机上直接试。
+
 //
-// 为什么要有这个面板：起播快慢、缓冲厚薄、抗抖动能力，在开发机和模拟器上根本量不出来
-// ——PC 解码快、带宽足，瓶颈不出现。只有电视本机（尤其 4K HEVC 高码率源）才是有效的
-// 测量场地，所以把调参权交给用户，让他一边看一边试。
+
+
+
 //
-// 面板顶部会显示「当前实际走的哪条解码路」：hls.js 的参数在系统原生解码路径下
-// 一点作用都没有，不说明的话用户会白调半天。
+
+
 import { KEY } from '../core/keys.js';
 import { t } from '../core/i18n.js';
 import {
@@ -23,10 +23,10 @@ export class PlayerTuning {
     this.el = el;
     this.focusIdx = 0;
     this.tuning = getTuning();
-    this.activePath = ''; // 'hls' | 'native' | ''，由 open() 传入
-    this.dirty = false; // 本次打开期间是否改过参数（决定关闭时要不要重新起播）
+    this.activePath = ''; 
+    this.dirty = false; 
 
-    this.onApply = null; // (tuning) => void，关闭时若有改动则回调，由外部重播当前频道
+    this.onApply = null; 
     this.onWarmChange = null;
     this.getWarmStatus = null;
     this.onClose = null;
@@ -36,7 +36,7 @@ export class PlayerTuning {
   }
 
   _onClick(e) {
-    // 鼠标用户没有返回键：点面板外的遮罩区即关闭
+    
     if (!e.target.closest('.panel')) {
       this.close();
       return;
@@ -51,7 +51,7 @@ export class PlayerTuning {
     const idx = rowEl ? parseInt(rowEl.dataset.idx, 10) : NaN;
     if (isNaN(idx)) return;
     this.focusIdx = idx;
-    this.render(); // 先同步高亮，后续键盘操作能从这里接上
+    this.render(); 
     if (hit.dataset.role === 'dec') this._cycle(-1);
     else if (hit.dataset.role === 'inc') this._cycle(1);
     else this._confirm();
@@ -61,7 +61,7 @@ export class PlayerTuning {
     return TUNING_SPECS.filter((s) => !s.warm || this.tuning.prefetchSegmentBytes > 0);
   }
 
-  // 参数行 + 末尾一个「恢复默认」按钮
+  
   _rowCount() {
     return this._specs().length + 1;
   }
@@ -83,7 +83,7 @@ export class PlayerTuning {
     const rows = specs.map((s, i) => {
       const cls = 'form-row' + (i === this.focusIdx ? ' focused' : '');
       const v = this.tuning[s.key];
-      // 默认值显示成灰色、改过的显示成高亮色，扫一眼就知道自己动过哪几项
+      
       const valCls = 'value' + (v === s.def ? ' off' : '');
       return `<div class="${cls}" data-role="row" data-idx="${i}" data-key="${s.key}">
           <span class="label">${t('tune.' + s.key)}</span>
@@ -94,7 +94,7 @@ export class PlayerTuning {
         </div>`;
     }).join('');
 
-    // 当前解码路径提示：hls.js 才受这些参数影响
+    
     const pathKey =
       this.activePath === 'hls'
         ? 'tune.pathHls'
@@ -104,7 +104,7 @@ export class PlayerTuning {
     const pathColor =
       this.activePath === 'hls' ? '#4fd08a' : this.activePath === 'native' ? '#ffb74d' : '#808a94';
 
-    // 焦点参数的说明。放在列表下方固定一块，避免随焦点移动导致布局跳动。
+    
     const focusSpec = specs[this.focusIdx];
     const desc = focusSpec
       ? t('tune.' + focusSpec.key + '.d')
@@ -154,7 +154,7 @@ export class PlayerTuning {
     if (spec.warm) {
       if (this.onWarmChange) this.onWarmChange(this.tuning);
     } else {
-      // 解码器参数关闭面板后才重播，避免每次左右调值都打断画面。
+      
       this.dirty = true;
     }
     this.render();
@@ -171,7 +171,7 @@ export class PlayerTuning {
       this.render();
       return;
     }
-    this._cycle(1); // 参数行按 OK 等同于右键
+    this._cycle(1); 
   }
 
   handleKey(code) {
@@ -206,7 +206,7 @@ export class PlayerTuning {
     clearInterval(this._warmTimer);
     this._warmTimer = null;
     this.el.classList.add('hidden');
-    // hls.js 的配置只在 new Hls() 时读一次，所以改完必须重新起播才生效。
+    
     const changed = this.dirty;
     this.dirty = false;
     if (changed && this.onApply) this.onApply(this.tuning);

@@ -1,5 +1,5 @@
-// Player 回看倍速的状态机：防抖重载、续播位置、引擎失败回退、拒绝原因。
-// hls.js 的挂载/加载全部打桩；引擎在假 media 原型上照常装属性垫片。
+
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Hls from 'hls.js';
@@ -77,7 +77,7 @@ async function setup(t) {
   t.mock.method(Hls.prototype, 'startLoad', function (p) { calls.start.push(p); });
   t.mock.method(Hls.prototype, 'recoverMediaError', function () { calls.recover++; });
   const on = Hls.prototype.on;
-  // hls.js 内部控制器注册时都带 context，Player 的不带：只记 Player 的
+  
   t.mock.method(Hls.prototype, 'on', function (ev, fn, ctx) {
     if (ctx === undefined) {
       if (!this.__h) this.__h = new Map();
@@ -88,7 +88,7 @@ async function setup(t) {
   });
   const video = new FakeMedia();
   const player = new Player(video);
-  await detectSpeed(); // 构造里那次探测先落地，再覆盖成「本机能用」
+  await detectSpeed(); 
   player._speedCap = { ok: true, path: 'webcodecs' };
   const fails = [];
   player.onRateFail = (r) => fails.push(r);
@@ -101,14 +101,14 @@ function fire(hls, ev, data) {
   for (const fn of (hls.__h && hls.__h.get(ev)) || []) fn(ev, data);
 }
 
-// 换到某档并等防抖走完；模拟新 MediaSource 起步时真实时间归零
+
 function toRate(t, player, video, r) {
   player.setRate(r);
   t.mock.timers.tick(600);
   video._t = 0;
 }
 
-test('回看换档：停手 600ms 才按新倍率重建一次，续播位置交给 startLoad', async (t) => {
+test('catch-up speed change: wait 600ms, rebuild once at new rate, resume position via startLoad', async (t) => {
   const { player, video, calls } = await setup(t);
   player.playCatchup(CH, PROG, CU);
   const h1 = player.hls;
@@ -122,29 +122,29 @@ test('回看换档：停手 600ms 才按新倍率重建一次，续播位置交�
   assert.equal(player.setRate(1.5), 1.5);
   assert.equal(player.rateSettling(), true);
   t.mock.timers.tick(599);
-  assert.equal(player.hls, h1, '防抖期内不重载');
+  assert.equal(player.hls, h1, 'no reload during debounce');
   t.mock.timers.tick(1);
   const h2 = player.hls;
   assert.notEqual(h2, h1);
   assert.equal(player.engine.S, 1.5);
-  assert.equal(calls.attachMS.at(-1), player.engine.MediaSourceClass, 'attachMedia 那一下用倍速 MediaSource');
-  assert.notEqual(globalThis.MediaSource, player.engine.MediaSourceClass, '挂完立刻换回原生类');
+  assert.equal(calls.attachMS.at(-1), player.engine.MediaSourceClass, 'attachMedia uses the speed MediaSource');
+  assert.notEqual(globalThis.MediaSource, player.engine.MediaSourceClass, 'restore native class right after attach');
 
-  video._t = 0; // 新 MediaSource 还没 seek 到续播点
-  assert.equal(player.position(), 120, '起播前用待续位置，不读 currentTime');
+  video._t = 0; 
+  assert.equal(player.position(), 120, 'use pending position before start, do not read currentTime');
   fire(h2, Hls.Events.MANIFEST_PARSED);
   assert.equal(calls.start.at(-1), 120);
   assert.equal(h1.config.startOnSegmentBoundary, true);
-  assert.equal(h2.config.startOnSegmentBoundary, false, '续播点不能被退回片头');
+  assert.equal(h2.config.startOnSegmentBoundary, false, 'resume point must not rewind to start');
   assert.equal(player.rateSettling(), true);
   video.emit('playing');
   assert.equal(player.rateSettling(), false);
   video._t = 100;
-  assert.equal(video.currentTime, 150, '垫片后 currentTime 是内容时间');
+  assert.equal(video.currentTime, 150, 'after priming, currentTime is content time');
   assert.equal(player.position(), 150);
 });
 
-test('回到 1× 同样重建实例，引擎拆掉后 video 露出原生属性', async (t) => {
+test('returning to 1x rebuilds instance; video exposes native props after teardown', async (t) => {
   const { player, video } = await setup(t);
   player.playCatchup(CH, PROG, CU);
   toRate(t, player, video, 2);
@@ -155,16 +155,16 @@ test('回到 1× 同样重建实例，引擎拆掉后 video 露出原生属性',
   toRate(t, player, video, 1);
   assert.equal(player.engine, null);
   assert.equal(Object.prototype.hasOwnProperty.call(video, 'currentTime'), false);
-  assert.equal(player.position(), 60, '按 2× 时的内容位置续播');
+  assert.equal(player.position(), 60, 'resume from content position at 2x');
   assert.equal(player.rateSettling(), true);
   const h = player.hls;
   fire(h, Hls.Events.MANIFEST_PARSED);
   player.playLive(CH);
-  assert.notEqual(player.hls, h, '续播实例改过起播配置，回直播必须重建');
+  assert.notEqual(player.hls, h, 'resume instance changed start config; returning live must rebuild');
   assert.equal(player.hls.config.startOnSegmentBoundary, true);
 });
 
-test('引擎失败：回 1×、报原因、从原内容位置重播，本节目不再尝试；换节目恢复', async (t) => {
+test('engine failure: back to 1x, report reason, replay from content position; no retry this programme', async (t) => {
   const { player, video, fails } = await setup(t);
   player.playCatchup(CH, PROG, CU);
   toRate(t, player, video, 1.5);
@@ -172,7 +172,7 @@ test('引擎失败：回 1×、报原因、从原内容位置重播，本节目�
   video._t = 40;
   const eng = player.engine;
   eng.fail('audio-codec');
-  assert.equal(player.engine, eng, '失败回调异步，不在 hls.js 调用栈里销毁');
+  assert.equal(player.engine, eng, 'failure callback is async; destroy outside hls.js stack');
   t.mock.timers.tick(0);
   assert.deepEqual(fails, ['audio-codec']);
   assert.equal(player.rate, 1);
@@ -182,14 +182,14 @@ test('引擎失败：回 1×、报原因、从原内容位置重播，本节目�
   assert.equal(player.setRate(2), 1);
   assert.deepEqual(fails, ['audio-codec', 'audio-codec']);
   t.mock.timers.tick(600);
-  assert.equal(player.engine, null, '被拒的换档不能排重载');
+  assert.equal(player.engine, null, 'rejected speed change schedules no reload');
 
   player.playCatchup(CH, { ...PROG, title: 'Q' }, CU);
   assert.equal(player.speedBlocked(), '');
   assert.equal(player.setRate(2), 2);
 });
 
-test('倍速时的解码错误、直播清单、无视频轨都交给引擎回退，不走恢复/原生回退', async (t) => {
+test('speed decode errors, live playlists and missing video tracks go to engine fallback, not recovery/native', async (t) => {
   const { player, video, calls, fails } = await setup(t);
   const fresh = () => {
     player.playCatchup(CH, PROG, CU);
@@ -208,7 +208,7 @@ test('倍速时的解码错误、直播清单、无视频轨都交给引擎回�
   video.emit('error');
   video.error = null;
   assert.equal(eng.failed, 'media');
-  assert.equal(player.activePath(), 'hls', '没有改走原生');
+  assert.equal(player.activePath(), 'hls', 'did not switch to native');
   t.mock.timers.tick(0);
 
   eng = fresh();
@@ -224,7 +224,7 @@ test('倍速时的解码错误、直播清单、无视频轨都交给引擎回�
   assert.deepEqual(fails, ['media', 'media', 'live', 'no-video']);
 });
 
-test('不能倍速的场合直接拒绝并给原因；1× 永远放行', async (t) => {
+test('unsupported speed rejected with reason; 1x always allowed', async (t) => {
   const { player, fails } = await setup(t);
   player.playLive(CH);
   assert.equal(player.setRate(2), 1);
@@ -243,7 +243,7 @@ test('不能倍速的场合直接拒绝并给原因；1× 永远放行', async (
   assert.equal(fails.length, 3);
 });
 
-test('倍速中回退原生：拆引擎并回 1×；停止时取消待执行的换档', async (t) => {
+test('fallback to native during speed: tear down engine and return to 1x; stop cancels pending change', async (t) => {
   const { player, video, fails } = await setup(t);
   player.playCatchup(CH, PROG, CU);
   toRate(t, player, video, 1.5);
@@ -262,7 +262,7 @@ test('倍速中回退原生：拆引擎并回 1×；停止时取消待执行的�
   assert.equal(player.rate, 1);
 });
 
-test('直播换台不受影响：同实例复用，不建引擎', async (t) => {
+test('live zapping unaffected: reuse instance, no engine', async (t) => {
   const { player } = await setup(t);
   player.playLive(CH);
   const h = player.hls;

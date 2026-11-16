@@ -1,4 +1,4 @@
-// 源管理：添加/切换/删除 M3U 直播源与 EPG 地址
+
 import { KEY } from '../core/keys.js';
 import { getSources, saveSources, getActiveSourceId, setActiveSourceId } from '../core/storage.js';
 import { mergeDeadUrls } from '../core/deadUrls.js';
@@ -7,7 +7,7 @@ import { proxied, resolveMediaUrl } from '../core/net.js';
 import { esc } from '../core/util.js';
 import { t } from '../core/i18n.js';
 
-// 从播放列表文本里取第一个 URI（变体清单或切片），相对地址基于 baseUrl 补全
+
 function firstUri(text, baseUrl) {
   for (let ln of text.split(/\r?\n/)) {
     ln = ln.trim();
@@ -29,7 +29,7 @@ function checkAbort(signal) {
   }
 }
 
-// 每层请求继承测试任务的取消，同时保留自己的超时；收尾也中止未读的响应体。
+
 function requestScope(parentSignal, timeoutMs) {
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -48,7 +48,7 @@ function requestScope(parentSignal, timeoutMs) {
   };
 }
 
-// 不等待 cancel：某些流的底层取消 Promise 可能一直不结束。
+
 function cancelStream(stream) {
   if (!stream) return;
   try { Promise.resolve(stream.cancel()).catch(() => {}); } catch (e) {}
@@ -86,7 +86,7 @@ async function getText(res, signal, limit = Infinity) {
   }
 }
 
-// 与 M3U 加载器一致：重定向后的 URL 才是基准，开发代理需取回 u。
+
 function responseBaseUrl(res, requestedUrl) {
   try {
     const finalUrl = new URL(res.url);
@@ -115,8 +115,8 @@ async function withResponse(url, signal, timeoutMs, read, headers) {
   }
 }
 
-// 单次请求（含读体）1.2s，整条 HLS 链路2.5s，最多下钻一个变体与切片。
-// 主动取消返回 null，不把取消当作地址失效；超时仍计为失效。
+
+
 async function probeUrl(url, perReqMs = 1200, totalMs = 2500, signal) {
   const scope = requestScope(signal, totalMs);
   try {
@@ -162,7 +162,7 @@ async function _probeInner(url, perReqMs, signal) {
   return (await get(seg, true)).ok;
 }
 
-// 并发池：每次出队前检查任务/源版本，取消后不再启动下一条。
+
 async function runPool(items, size, worker, isCurrent) {
   let i = 0;
   const runners = new Array(Math.min(size, items.length)).fill(0).map(async () => {
@@ -174,18 +174,18 @@ async function runPool(items, size, worker, isCurrent) {
   await Promise.all(runners);
 }
 
-// 新增源时 M3U 地址预填的协议前缀。
-// 遥控器打这 7 个字符很费劲——软键盘上 : 和 / 都要翻到符号页去找，而所有远程源
-// 都以它开头。EPG 地址**不预填**：那个框留空是有语义的（留空才会回退到默认 EPG），
-// 填上 http:// 会把「留空」这个状态毁掉。
+
+
+
+
 const URL_PREFIX = 'http://';
 
 function blankForm() {
   return { name: '', m3uUrl: URL_PREFIX, epgUrl: '' };
 }
 
-// 只剩协议前缀没有主机名，等同于没填——否则用户一进面板直接按保存
-// 就会存进一个内容是 "http://" 的垃圾源。
+
+
 function isBlankUrl(v) {
   const s = (v || '').trim();
   return !s || /^https?:\/\/$/i.test(s);
@@ -195,7 +195,7 @@ export class SourceManager {
   constructor(el) {
     this.el = el;
     this.sources = [];
-    this.focusIdx = 0; // 0名称 1:M3U 2:EPG 3:保存按钮 4..:源列表
+    this.focusIdx = 0; 
     this.form = blankForm();
     this.editingInput = false;
     this.composingInput = null;
@@ -205,25 +205,25 @@ export class SourceManager {
       if (!this.isOpen()) return;
       this.editingInput = this.keyboardVisible && this.focusIdx <= 2 &&
         document.activeElement === this.el.querySelector('#' + ['src-name', 'src-m3u', 'src-epg'][this.focusIdx]);
-      // 语音输入也会短暂收起键盘，这里只恢复导航状态，不主动失焦。
+      
       this._updateInputHint();
     });
 
     this.onUseSource = null; // (source) => void
     this.onClose = null;
 
-    this.testing = false; // 正在测试某个源
-    this.testingIdx = -1; // 正在测试的源在列表中的下标
-    this.testMsg = ''; // 测试进度/结果提示
-    this._testRun = null; // 唯一活动任务；对象身份隔离关闭/重开后的迟到回调
-    this.editingId = null; // 正在编辑的源 id（null=新增模式）
+    this.testing = false; 
+    this.testingIdx = -1; 
+    this.testMsg = ''; 
+    this._testRun = null; 
+    this.editingId = null; 
 
-    // 鼠标：事件委托（点输入框编辑、点源使用、点 ✕ 删除，点面板外关闭）
+    
     this.el.addEventListener('click', (e) => this._onClick(e));
   }
 
   _onClick(e) {
-    // 鼠标用户没有返回键：点面板外的遮罩区即关闭
+    
     if (!e.target.closest('.panel')) {
       this.close();
       return;
@@ -235,7 +235,7 @@ export class SourceManager {
       this.close();
       return;
     }
-    // 取消编辑：退出编辑态，表单清空
+    
     if (role === 'cancel-edit') {
       this._cancelEdit();
       return;
@@ -243,12 +243,12 @@ export class SourceManager {
     const rowEl = hit.closest('[data-idx]');
     const idx = rowEl ? parseInt(rowEl.dataset.idx, 10) : NaN;
     if (isNaN(idx)) return;
-    // 测试按钮：不改变使用中的源，只对该行远程源做连通性检测
+    
     if (role === 'test') {
       this._testSource(idx - 4);
       return;
     }
-    // 编辑按钮：把该源载入顶部表单进入编辑态
+    
     if (role === 'edit') {
       this._editSource(idx - 4);
       return;
@@ -262,8 +262,8 @@ export class SourceManager {
       this._deleteFocused();
       return;
     }
-    this.render(); // 先同步高亮，后续键盘操作能从这里接上
-    this._confirm(); // 输入框进编辑 / 保存按钮 / 使用该源
+    this.render(); 
+    this._confirm(); 
   }
 
   open() {
@@ -406,7 +406,7 @@ export class SourceManager {
   handleKey(code, event) {
     if (this.composingInput || code === 229 || (event && event.isComposing)) return false;
     if (this.editingInput) {
-      // 软键盘选字由系统处理；其 Enter 才会向输入框投递键盘事件。
+      
       if (code === KEY.OK && event &&
           (event.code === 'Enter' || event.code === 'NumpadEnter')) {
         if (!event.repeat) this._advanceInput();
@@ -433,7 +433,7 @@ export class SourceManager {
         break;
       case KEY.OK:
         if (event && event.repeat) return true;
-        // 消费唤起键盘的 OK，避免它的 keypress 再次落到新聚焦的输入框。
+        
         this._confirm();
         break;
       case KEY.BLUE:
@@ -453,7 +453,7 @@ export class SourceManager {
 
   _confirm() {
     if (this.focusIdx <= 2) {
-      // 聚焦到输入框并进入编辑
+      
       const ids = ['src-name', 'src-m3u', 'src-epg'];
       const inp = this.el.querySelector('#' + ids[this.focusIdx]);
       if (inp) {
@@ -467,7 +467,7 @@ export class SourceManager {
     } else if (this.focusIdx === 3) {
       this._save();
     } else {
-      // 使用已保存的源
+      
       const s = this.sources[this.focusIdx - 4];
       if (s && this.onUseSource) {
         setActiveSourceId(s.id);
@@ -479,7 +479,7 @@ export class SourceManager {
 
   _save() {
     if (isBlankUrl(this.form.m3uUrl)) return;
-    // 编辑态：更新原源（按 id），不新建，保存后留在面板
+    
     if (this.editingId) {
       const s = this.sources.find((x) => x.id === this.editingId);
       if (s) {
@@ -488,7 +488,7 @@ export class SourceManager {
         s.m3uUrl = this.form.m3uUrl.trim();
         s.epgUrl = this.form.epgUrl.trim();
         saveSources(this.sources);
-        // 改的是正在使用的源：立即重载让改动生效
+        
         if (getActiveSourceId() === s.id && this.onUseSource) this.onUseSource(s);
       }
       const idx = this.sources.findIndex((x) => x.id === this.editingId);
@@ -512,7 +512,7 @@ export class SourceManager {
     this.close();
   }
 
-  // 把某个已保存源载入顶部表单进入编辑态；焦点移到名称输入框
+  
   _editSource(srcIdx) {
     const s = this.sources[srcIdx];
     if (!s) return;
@@ -528,7 +528,7 @@ export class SourceManager {
     this.render();
   }
 
-  // 退出编辑态，清空表单
+  
   _cancelEdit() {
     this.editingId = null;
     this.form = blankForm();
@@ -559,12 +559,12 @@ export class SourceManager {
 
   _currentTestSource(run) {
     if (this._testRun !== run || run.controller.signal.aborted || !this.isOpen()) return null;
-    // 不按下标写回；同 id 被替换、M3U 被编辑，或者源已删除，均作废。
+    
     return this.sources.find((s) => s === run.source && s.id === run.id && s.m3uUrl === run.m3uUrl) || null;
   }
 
-  // 测试某个远程源：拉取最新 m3u，逐条实测可播性，把失效地址存入 src.deadUrls；
-  // 加载该源时会据此剔除不可播频道（源全灭则删频道，空组不显示）。本地源不测试。
+  
+  
   async _testSource(srcIdx) {
     if (this._testRun) {
       if (this._currentTestSource(this._testRun)) return;
@@ -588,7 +588,7 @@ export class SourceManager {
     let resultMsg = '';
     try {
       this.render();
-      // 源列表允许45s（与正常加载一致）；超时包括读体，关闭/编辑可立即取消。
+      
       const { text, baseUrl } = await withResponse(run.m3uUrl, run.controller.signal, 45000, async (res, signal) => {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return { text: await getText(res, signal), baseUrl: responseBaseUrl(res, run.m3uUrl) };
@@ -609,7 +609,7 @@ export class SourceManager {
         if (done % 6 === 0 || done === urls.length) setRowMsg(t('sm.testingProgress', { done, total: urls.length }));
       }, isCurrent);
       if (!isCurrent()) return;
-      // 频道级统计：所有源都失效才算该频道失效；整组全灭则连组一起移除
+      
       let keptCh = 0;
       let deadCh = 0;
       const keptGroups = new Set();
@@ -626,7 +626,7 @@ export class SourceManager {
       }
       let deadGroupCount = 0;
       for (const g of deadGroups) if (!keptGroups.has(g)) deadGroupCount++;
-      // 只合并这个版本的测试结果，不用旧列表覆盖其它入口的新增/编辑/删除。
+      
       const latest = getSources();
       const saved = latest.find((s) => s.id === run.id && s.m3uUrl === run.m3uUrl);
       if (!saved) {
@@ -641,7 +641,7 @@ export class SourceManager {
       resultMsg =
         t('sm.testDone', { kept: keptCh, dead: deadCh }) +
         (deadGroupCount ? t('sm.testDoneGroups', { n: deadGroupCount }) : '');
-      // 回调可能同步关闭/重开面板；finally 仍需核对身份，不能重渲新任务。
+      
       if (isCurrent() && getActiveSourceId() === run.id && this.onUseSource) this.onUseSource(saved);
     } catch (e) {
       if (isCurrent()) resultMsg = t('sm.testFailed', { msg: (e && e.message) || t('sm.netError') });

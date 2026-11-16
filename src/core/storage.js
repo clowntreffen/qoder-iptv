@@ -1,4 +1,4 @@
-// localStorage 持久化封装：源列表、收藏、设置、上次频道、EPG 缓存
+
 import { normalizeOverrides } from './channelCustomization.js';
 
 const NS = 'iptv:';
@@ -12,8 +12,8 @@ function read(key, fallback) {
   }
 }
 
-// 清理 EPG 缓存项（expiredOnly=true 只清过期的），返回清除条数。
-// DIYP 模式下每「频道×日期」一个 key，长期累积容易顶满配额，靠这里腾空间。
+
+
 function pruneEpgCache(expiredOnly = true) {
   let n = 0;
   try {
@@ -41,8 +41,8 @@ function write(key, value) {
     localStorage.setItem(NS + key, raw);
     return true;
   } catch (e) {
-    // 写满了：先清过期 EPG 缓存，不够再清全部 EPG 缓存（可重拉），
-    // 保住源列表/收藏/隐藏分组等用户数据能写进去，不再静默丢弃。
+    
+    
     for (const expiredOnly of [true, false]) {
       if (!pruneEpgCache(expiredOnly)) continue;
       try {
@@ -50,7 +50,7 @@ function write(key, value) {
         return true;
       } catch (e2) {}
     }
-    if (!key.startsWith('epg:')) console.warn('[storage] 写入失败（存储已满）:', key);
+    if (!key.startsWith('epg:')) console.warn('[storage] write failed (quota full):', key);
     return false;
   }
 }
@@ -61,7 +61,7 @@ function remove(key) {
   } catch (e) {}
 }
 
-// ---- 直播源（M3U）列表 ----
+
 // source: { id, name, m3uUrl, epgUrl }
 export function getSources() {
   return read('sources', []);
@@ -76,14 +76,14 @@ export function setActiveSourceId(id) {
   write('activeSource', id);
 }
 
-// ---- 设置 ----
+
 const DEFAULT_SETTINGS = {
   aspect: '16:9', // 16:9 | 4:3 | fill
-  // 默认自动：普通频道用 hls.js（真机实测比电视原生 HLS 管线更流畅），
-  // 4K/HEVC 频道在 MSE 探测不到 HEVC 时改用原生硬件解码（MSE 声明支持不等于能解该路流）
+  
+  
   decoder: 'auto', // auto | native | hls
   autoPlayLast: true,
-  showNetSpeed: false, // 右下角显示当前频道的加载网速
+  showNetSpeed: false, 
   fontScale: 1,
   language: 'en', // UI fixed to English; value kept only for saved-settings compatibility
   languageVersion: 3,
@@ -95,8 +95,8 @@ const DEFAULT_SETTINGS = {
 export function getSettings() {
   const raw = read('settings', {});
   const s = { ...DEFAULT_SETTINGS, ...raw };
-  // v3：UI 语言固定英文。旧存档（含手动选过的 zh）一律迁移到 en，避免电视 locale 把界面切成中文；
-  // 之后每次读取也强制 en，防止外部写入把语言改回中文。
+  
+  
   if (raw.languageVersion !== DEFAULT_SETTINGS.languageVersion) {
     s.language = 'en';
     s.languageVersion = DEFAULT_SETTINGS.languageVersion;
@@ -108,22 +108,22 @@ export function saveSettings(s) {
   write('settings', { ...getSettings(), ...s });
 }
 
-// ---- 收藏（按频道唯一键） ----
+
 //
-// 带内存缓存，而且是必须的：isFavorite() 在频道菜单里是**逐频道**调用的
-// （_buildGroups 过滤一遍、每次 render 的签名再过一遍、建条目时又一遍）。
-// 原来每调一次就是一次 localStorage.getItem + JSON.parse + 数组 includes，
-// 几千个台的源上，按一下方向键就是几千次同步读盘加解析——电视的弱 CPU 上
-// 这是开菜单和导航卡顿的头号来源。查询改走 Set，写入时整体失效。
-let favArr = null; // 缓存的收藏数组（与持久化内容一致）
-let favSet = null; // 同一份数据的查询索引
-let favVer = 0; // 数据版本，供上层判断「收藏变了没」而不必逐项比对
+
+
+
+
+
+let favArr = null; 
+let favSet = null; 
+let favVer = 0; 
 
 export function getFavorites() {
   if (!favArr) favArr = read('favorites', []);
   return favArr;
 }
-// 收藏表的版本号。只在真正写入时递增，上层拿它做 O(1) 的变更判定。
+
 export function favVersion() {
   return favVer;
 }
@@ -143,10 +143,10 @@ export function toggleFavorite(key) {
   if (idx >= 0) list.splice(idx, 1);
   else list.push(key);
   saveFavorites(list);
-  return idx < 0; // true=已收藏
+  return idx < 0; 
 }
 
-// ---- 上次观看频道 ----
+
 export function getLastChannelKey() {
   return read('lastChannel', null);
 }
@@ -154,9 +154,9 @@ export function setLastChannelKey(key) {
   write('lastChannel', key);
 }
 
-// ---- 每个频道上次成功播放的源 ----
-// 源地址随时会失效，记住「上次能播的那条」能跳过已经死掉的备用源。
-// 单张映射存全部频道，超过上限按写入顺序淘汰（对象键顺序即插入顺序）。
+
+
+
 const SRCMEM_MAX = 400;
 export function getLastSourceIdx(key) {
   const map = read('lastSource', null);
@@ -176,7 +176,7 @@ export function setLastSourceIdx(key, idx) {
   write('lastSource', map);
 }
 
-// ---- 最近观看频道 ----
+
 const RECENT_MAX = 30;
 export function getRecents() {
   const list = read('recents', []);
@@ -194,9 +194,9 @@ export function clearRecents() {
   remove('recents');
 }
 
-// ---- 回看续播位置（秒，按频道键）----
-// 断点续看：回看途中退出/换台时把位置落盘，下次点同一节目先问「继续 / 从头」。
-// 单张映射存全部频道，超过上限按写入顺序淘汰（与 lastSource 同一策略）。
+
+
+
 const RESUME_MAX = 200;
 function resumeMap(fallback) {
   const v = read('resume', null);
@@ -230,8 +230,8 @@ export function removeResumePosition(key) {
   write('resume', next);
 }
 
-// ---- 家长锁：分组级（跨源，按分组名）----
-// 被锁分组仍在频道菜单列出（带锁标），进入前要 PIN；换台序列会跳过。
+
+
 export function getLockedGroups() {
   const list = read('lockedGroups', []);
   return Array.isArray(list) ? list.filter((g) => typeof g === 'string' && g) : [];
@@ -243,7 +243,7 @@ export function isGroupLocked(name) {
   return !!name && getLockedGroups().includes(name);
 }
 
-// ---- 频道级自定义（改名 / 单频道隐藏 / EPG 分钟偏移）----
+
 export function getChannelOverrides() {
   return normalizeOverrides(read('channelOverrides', null));
 }
@@ -251,7 +251,7 @@ export function setChannelOverrides(map) {
   write('channelOverrides', normalizeOverrides(map));
 }
 
-// ---- M3U 离线缓存 ----
+
 export function getM3uCache(url) {
   const v = read('m3u:' + url, null);
   return v && typeof v.text === 'string' ? v : null;
@@ -268,7 +268,7 @@ export function clearM3uCache() {
   } catch (e) {}
 }
 
-// ---- EPG 缓存 ----
+
 export function getEpgCache(url) {
   return read('epg:' + url, null);
 }
@@ -283,13 +283,13 @@ export function clearEpgCache() {
   } catch (e) {}
 }
 
-// ---- 回看能力探测结果缓存 ----
-// 时移能力是「网关级」：同一个网关下的频道要么都能回看，要么都不能，
-// 所以 key 用「源id::网关host」而不是频道，一次探测全源受益。
-// 成功结果缓存 3 天（太久会一直沿用旧结论），失败 6 小时，临时失败只记 5 分钟。
+
+
+
+
 export const CATCHUP_TTL_OK = 3 * 24 * 3600 * 1000;
 export const CATCHUP_TTL_FAIL = 6 * 3600 * 1000;
-// 探测途中碰上超时/请求失败：结论不可靠，过几分钟就该重探
+
 export const CATCHUP_TTL_RETRY = 5 * 60 * 1000;
 
 export function getCatchupProbe(key) {

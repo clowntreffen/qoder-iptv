@@ -48,7 +48,7 @@ function fixture(t) {
   return { player, video };
 }
 
-test('play() AbortError 不静音、不重试', async (t) => {
+test('play() AbortError does not mute or retry', async (t) => {
   const { player, video } = fixture(t);
   let calls = 0;
   video.play = () => { calls++; return Promise.reject(new DOMException('interrupted', 'AbortError')); };
@@ -58,7 +58,7 @@ test('play() AbortError 不静音、不重试', async (t) => {
   assert.equal(video.muted, false);
 });
 
-test('仅当前载入的自动播放权限拒绝才静音重试', async (t) => {
+test('only autoplay rejection of current source mutes and retries', async (t) => {
   const { player, video } = fixture(t);
   let calls = 0;
   video.play = () => ++calls === 1
@@ -70,7 +70,7 @@ test('仅当前载入的自动播放权限拒绝才静音重试', async (t) => {
   assert.equal(video.muted, true);
 });
 
-test('换台、原生回退或停止后，旧 play Promise 不得重试', async (t) => {  const { player, video } = fixture(t);
+test('after zap/native fallback/stop, stale play promise must not retry', async (t) => {  const { player, video } = fixture(t);
   for (const change of [
     () => { player._phase = { t0: Date.now() }; },
     () => { player._activePath = 'native'; },
@@ -90,7 +90,7 @@ test('换台、原生回退或停止后，旧 play Promise 不得重试', async 
   }
 });
 
-test('原生播放途中解码出错先重载两次再报错', (t) => {
+test('native decode error mid-playback reloads twice before reporting', (t) => {
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 100000 });
   const { player, video } = fixture(t);
   player._activePath = 'native';
@@ -102,19 +102,19 @@ test('原生播放途中解码出错先重载两次再报错', (t) => {
   player.onError = () => { errors++; };
   video.error = { code: 3 };
   video.emit('error');
-  assert.equal(errors, 0, '第一次错误应静默重连');
+  assert.equal(errors, 0, 'first error reconnects silently');
   t.mock.timers.tick(1200);
   assert.equal(reloads, 1);
   video.emit('error');
   t.mock.timers.tick(2400);
   assert.equal(reloads, 2);
   video.emit('error');
-  assert.equal(reloads, 2, '重载次数有上限');
-  assert.equal(errors, 1, '重试用完才把错误交给上层');
+  assert.equal(reloads, 2, 'reload count capped');
+  assert.equal(errors, 1, 'error surfaces only after reloads exhausted');
   video.error = null;
 });
 
-test('原生起播即失败、回看出错都不走重载', (t) => {
+test('instant native start failure and catch-up errors skip reload', (t) => {
   const { player, video } = fixture(t);
   player._activePath = 'native';
   player._proxiedUrl = player.current.url;
@@ -124,17 +124,17 @@ test('原生起播即失败、回看出错都不走重载', (t) => {
   player.onError = () => { errors++; };
   video.error = { code: 3 };
   video.emit('error');
-  assert.equal(reloads, 0, '没出过画面：重载救不了格式问题');
+  assert.equal(reloads, 0, 'no frame shown: reload cannot fix format');
   assert.equal(errors, 1);
   player.mode = 'catchup';
   player._playedOnce = true;
   video.emit('error');
-  assert.equal(reloads, 0, '回看重载会丢进度');
+  assert.equal(reloads, 0, 'catch-up reload loses position');
   assert.equal(errors, 2);
   video.error = null;
 });
 
-test('4K/HEVC 原生解码出错不原地重载，并记住这条地址', (t) => {
+test('4K/HEVC native decode error skips reload and remembers URL', (t) => {
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 100000 });
   const { player, video } = fixture(t);
   player._activePath = 'native';
@@ -148,14 +148,14 @@ test('4K/HEVC 原生解码出错不原地重载，并记住这条地址', (t) =>
   video.error = { code: 3 };
   video.emit('error');
   t.mock.timers.tick(5000);
-  assert.equal(reloads, 0, '4K 坏流不再重起解码管线');
+  assert.equal(reloads, 0, 'broken 4K stream does not restart decode pipeline');
   assert.equal(errors, 1);
   assert.equal(player._nativeBad.has(player.current.url), true);
-  assert.equal(player._nativeAllowed(player.current.url), false, '这条地址本场不再交原生');
+  assert.equal(player._nativeAllowed(player.current.url), false, 'URL stays off native this session');
   video.error = null;
 });
 
-test('原生解码连续两次彻底失败后本场熔断并只提示一次', (t) => {
+test('two hard native failures trip session fuse with one notice', (t) => {
   const { player, video } = fixture(t);
   player._activePath = 'native';
   player._proxiedUrl = player.current.url;
@@ -166,16 +166,16 @@ test('原生解码连续两次彻底失败后本场熔断并只提示一次', (t
   player.onError = () => {};
   video.error = { code: 3 };
   video.emit('error');
-  assert.equal(player._nativeOff, false, '一次失败还不够熔断');
+  assert.equal(player._nativeOff, false, 'one failure does not trip fuse');
   assert.equal(notices, 0);
   video.emit('error');
   assert.equal(player._nativeOff, true);
   assert.equal(notices, 1);
   video.emit('error');
-  assert.equal(notices, 1, '提示只发一次');
+  assert.equal(notices, 1, 'notice sent once');
   player._decoder = 'native';
   player._triedNativeFallback = false;
-  assert.equal(player._fallbackToNative('media'), false, '熔断后不再回退原生');
+  assert.equal(player._fallbackToNative('media'), false, 'no native fallback after fuse');
   assert.equal(player._willUseNative('https://example.test/other.m3u8'), false);
   assert.equal(player._looksHevc('https://example.test/other.m3u8'), false);
   video.error = null;
@@ -186,7 +186,7 @@ function clock(t) {
   return (ms) => t.mock.timers.tick(ms);
 }
 
-test('首帧停在连续缓冲首边界超过1秒，仅内移50ms一次', (t) => {
+test('first frame stalls over 1s at buffer edge: nudge 50ms once', (t) => {
   const tick = clock(t);
   const { player, video } = fixture(t);
   player._watchStartup();
@@ -198,10 +198,10 @@ test('首帧停在连续缓冲首边界超过1秒，仅内移50ms一次', (t) =>
   assert.equal(player.startupStatus().motion, null);
   video.currentTime = 10;
   tick(2000);
-  assert.equal(video.currentTime, 10, '不能反复seek');
+  assert.equal(video.currentTime, 10, 'must not seek repeatedly');
 });
 
-test('正常起播时间推进立即结束观察，不延迟play也不校正', (t) => {
+test('normal start ends watch on progress without delayed play or correction', (t) => {
   const tick = clock(t);
   const { player, video } = fixture(t);
   let calls = 0;
@@ -218,7 +218,7 @@ test('正常起播时间推进立即结束观察，不延迟play也不校正', (
   assert.equal(video.currentTime, 10.25);
 });
 
-test('playing和首帧可用不冒充播放时间推进', (t) => {
+test('playing/first-frame readiness cannot fake progress', (t) => {
   const tick = clock(t);
   const { player, video } = fixture(t);
   player._watchStartup();
@@ -233,20 +233,20 @@ test('playing和首帧可用不冒充播放时间推进', (t) => {
 });
 
 for (const [name, configure] of [
-  ['缓冲不足', (p, v) => { v.buffered = ranges([[10, 10.4]]); }],
-  ['音视频缓冲有空洞', (p, v) => { v.buffered = ranges([[9, 10.1], [10.3, 20]]); }],
-  ['当前落在空洞内', (p, v) => { v.currentTime = 10.2; v.buffered = ranges([[9, 10.1], [10.3, 20]]); }],
-  ['正在seeking', (p, v) => { v.seeking = true; }],
-  ['尚无当前帧', (p, v) => { v.readyState = 1; }],
-  ['已有后续帧交由HLS恢复', (p, v) => { v.readyState = 3; }],
-  ['数据充足交由HLS恢复', (p, v) => { v.readyState = 4; }],
-  ['暂停', (p, v) => { v.paused = true; }],
-  ['片中间位置', (p, v) => { v.currentTime = 11; }],
-  ['回看', (p) => { p.mode = 'catchup'; }],
-  ['当前主片未完成', (p) => { p.hls.inFlightFragments = { main: { state: 'PARSING', frag: { start: 10 } } }; }],
-  ['当前音轨未完成', (p) => { p.hls.inFlightFragments = { audio: { state: 'FRAG_LOADING', frag: { start: 9.8 } } }; }]
+  ['low buffer', (p, v) => { v.buffered = ranges([[10, 10.4]]); }],
+  ['AV buffer has hole', (p, v) => { v.buffered = ranges([[9, 10.1], [10.3, 20]]); }],
+  ['playhead in hole', (p, v) => { v.currentTime = 10.2; v.buffered = ranges([[9, 10.1], [10.3, 20]]); }],
+  ['seeking', (p, v) => { v.seeking = true; }],
+  ['no current frame', (p, v) => { v.readyState = 1; }],
+  ['later frame exists, leave recovery to HLS', (p, v) => { v.readyState = 3; }],
+  ['enough data, leave recovery to HLS', (p, v) => { v.readyState = 4; }],
+  ['paused', (p, v) => { v.paused = true; }],
+  ['mid-fragment position', (p, v) => { v.currentTime = 11; }],
+  ['catch-up', (p) => { p.mode = 'catchup'; }],
+  ['main fragment incomplete', (p) => { p.hls.inFlightFragments = { main: { state: 'PARSING', frag: { start: 10 } } }; }],
+  ['audio fragment incomplete', (p) => { p.hls.inFlightFragments = { audio: { state: 'FRAG_LOADING', frag: { start: 9.8 } } }; }]
 ]) {
-  test(name + '不能做首边界校正', (t) => {
+  test(name + 'cannot apply edge correction', (t) => {
     const tick = clock(t);
     const { player, video } = fixture(t);
     configure(player, video);
@@ -258,7 +258,7 @@ for (const [name, configure] of [
   });
 }
 
-test('下一片的下载不阻止已有连续缓冲内的首边界校正', (t) => {
+test('next segment download does not block edge correction in continuous buffer', (t) => {
   const tick = clock(t);
   const { player, video } = fixture(t);
   player.hls.inFlightFragments = { main: { state: 'FRAG_LOADING', frag: { start: 16 } } };
@@ -267,7 +267,7 @@ test('下一片的下载不阻止已有连续缓冲内的首边界校正', (t) =
   assert.equal(video.currentTime, 10.05);
 });
 
-test('seek跳时不当成播放，seek完成后重新计算停滞时间', (t) => {
+test('seek jump is not playback; stall timer restarts after seek', (t) => {
   const tick = clock(t);
   const { player, video } = fixture(t);
   video.currentTime = 0;
@@ -284,7 +284,7 @@ test('seek跳时不当成播放，seek完成后重新计算停滞时间', (t) =>
   assert.equal(video.currentTime, 10.05);
 });
 
-test('超时观察不残留定时器，不绕过原有失败看门狗', (t) => {
+test('timeout watch leaves no timers and bypasses no watchdog', (t) => {
   const tick = clock(t);
   const { player, video } = fixture(t);
   video.seeking = true;
@@ -295,7 +295,7 @@ test('超时观察不残留定时器，不绕过原有失败看门狗', (t) => {
   assert.equal(video.currentTime, 10);
 });
 
-test('超过观察期限才收到首片不能启动永久空转的定时器', (t) => {
+test('late first fragment past deadline must not start idle timer', (t) => {
   const tick = clock(t);
   const { player } = fixture(t);
   tick(11000);
@@ -303,7 +303,7 @@ test('超过观察期限才收到首片不能启动永久空转的定时器', (t
   assert.equal(player._startupTimer, null);
 });
 
-test('原生路径没有seekable时只能观察，不能照搬HLS边界校正', (t) => {
+test('native path without seekable only observes; no HLS edge correction', (t) => {
   const tick = clock(t);
   const { player, video } = fixture(t);
   player._activePath = 'native';
@@ -316,7 +316,7 @@ test('原生路径没有seekable时只能观察，不能照搬HLS边界校正', 
   assert.equal(video.currentTime, 10);
 });
 
-test('停止或销毁后取消帧回调，迟到帧不污染新载入', (t) => {
+test('stop/destroy cancels frame callback; late frames do not pollute new load', (t) => {
   clock(t);
   const { player, video } = fixture(t);
   let frame;
@@ -332,7 +332,7 @@ test('停止或销毁后取消帧回调，迟到帧不污染新载入', (t) => {
   assert.equal(player._phase.frame, undefined);
 });
 
-test('实际帧回调与playing、播放推进分别记录', (t) => {
+test('frame callback, playing and progress recorded separately', (t) => {
   const tick = clock(t);
   const { player, video } = fixture(t);
   let frame;
@@ -346,7 +346,7 @@ test('实际帧回调与playing、播放推进分别记录', (t) => {
   assert.equal(player.startupStatus().motion, null);
 });
 
-test('网速角标在尚未playing时显示英文起播诊断，重置后清空', (t) => {
+test('speed badge shows English startup diagnostics before playing; cleared on reset', (t) => {
   clock(t);
   const { player } = fixture(t);
   player._watchStartup();
@@ -373,7 +373,7 @@ function nativeFixture(t) {
 }
 
 for (const readyState of [2, 3, 4]) {
-  test(`原生HLS readyState=${readyState} 有缓冲却静止也不得seek`, (t) => {
+  test(`native HLS readyState=${readyState} stalled with buffer must not seek`, (t) => {
     const tick = clock(t);
     const { player, video } = nativeFixture(t);
     video.readyState = readyState;
@@ -387,25 +387,25 @@ for (const readyState of [2, 3, 4]) {
 }
 
 for (const [name, configure] of [
-  ['未报告buffered', (p, v) => { v.buffered = ranges([]); }],
-  ['buffered查询失败', (p, v) => { Object.defineProperty(v, 'buffered', { get() { throw Error('unsupported'); } }); }],
-  ['未报告seekable', (p, v) => { v.seekable = ranges([]); }],
-  ['seekable查询失败', (p, v) => { Object.defineProperty(v, 'seekable', { get() { throw Error('unsupported'); } }); }],
-  ['seekable不含当前位置', (p, v) => { v.seekable = ranges([[10.01, 30]]); }],
-  ['定位区间有空洞', (p, v) => { v.seekable = ranges([[0, 10.02], [10.04, 30]]); }],
-  ['目标后定位余量不足', (p, v) => { v.seekable = ranges([[0, 12.01]]); }],
-  ['缓冲不足', (p, v) => { v.buffered = ranges([[10, 10.4]]); }],
-  ['目标后缓冲余量不足', (p, v) => { v.buffered = ranges([[10, 12.01]]); }],
-  ['播放头落在缓冲空洞', (p, v) => { v.buffered = ranges([[0, 9], [10.01, 30]]); }],
-  ['尚无当前帧', (p, v) => { v.readyState = 1; }],
-  ['暂停', (p, v) => { v.paused = true; }],
-  ['正在定位', (p, v) => { v.seeking = true; }],
-  ['已结束', (p, v) => { v.ended = true; }],
-  ['已出错', (p, v) => { v.error = { code: 3 }; }],
-  ['回看', (p) => { p.mode = 'catchup'; }],
-  ['非HLS媒体', (p) => { p._rawUrl = 'https://example.test/video.mp4'; }]
+  ['buffered unreported', (p, v) => { v.buffered = ranges([]); }],
+  ['buffered query throws', (p, v) => { Object.defineProperty(v, 'buffered', { get() { throw Error('unsupported'); } }); }],
+  ['seekable unreported', (p, v) => { v.seekable = ranges([]); }],
+  ['seekable query throws', (p, v) => { Object.defineProperty(v, 'seekable', { get() { throw Error('unsupported'); } }); }],
+  ['seekable excludes current position', (p, v) => { v.seekable = ranges([[10.01, 30]]); }],
+  ['seekable range has hole', (p, v) => { v.seekable = ranges([[0, 10.02], [10.04, 30]]); }],
+  ['insufficient seekable margin after target', (p, v) => { v.seekable = ranges([[0, 12.01]]); }],
+  ['low buffer', (p, v) => { v.buffered = ranges([[10, 10.4]]); }],
+  ['insufficient buffer margin after target', (p, v) => { v.buffered = ranges([[10, 12.01]]); }],
+  ['playhead in buffer hole', (p, v) => { v.buffered = ranges([[0, 9], [10.01, 30]]); }],
+  ['no current frame', (p, v) => { v.readyState = 1; }],
+  ['paused', (p, v) => { v.paused = true; }],
+  ['seeking', (p, v) => { v.seeking = true; }],
+  ['ended', (p, v) => { v.ended = true; }],
+  ['errored', (p, v) => { v.error = { code: 3 }; }],
+  ['catch-up', (p) => { p.mode = 'catchup'; }],
+  ['non-HLS media', (p) => { p._rawUrl = 'https://example.test/video.mp4'; }]
 ]) {
-  test(`原生${name}不得猜测定位`, (t) => {
+  test(`native ${name} must not guess position`, (t) => {
     const tick = clock(t);
     const { player, video } = nativeFixture(t);
     configure(player, video);
@@ -416,7 +416,7 @@ for (const [name, configure] of [
   });
 }
 
-test('原生首帧晚到后仍只观察真实推进，不执行seek', (t) => {
+test('late native first frame still observes real progress, no seek', (t) => {
   const tick = clock(t);
   const { player, video } = nativeFixture(t);
   video.readyState = 1;
@@ -432,7 +432,7 @@ test('原生首帧晚到后仍只观察真实推进，不执行seek', (t) => {
   assert.equal(player.startupStatus().motion, null);
 });
 
-test('原生playing不冒充起播成功，时间真实推进才通知界面', (t) => {
+test('native playing does not fake start; notify UI on real progress', (t) => {
   const tick = clock(t);
   const { player, video } = nativeFixture(t);
   const states = [];
@@ -456,7 +456,7 @@ test('原生playing不冒充起播成功，时间真实推进才通知界面', (
   assert.equal(player.startupStatus().nudged, false);
 });
 
-test('原生静止时绝不写currentTime', (t) => {
+test('never write currentTime while native is stalled', (t) => {
   const tick = clock(t);
   const { player, video } = nativeFixture(t);
   let attempts = 0;
@@ -468,7 +468,7 @@ test('原生静止时绝不写currentTime', (t) => {
   assert.equal(player.startupStatus().motion, null);
 });
 
-test('原生seek跳时不算推进，完成后保持观察且不再微调', (t) => {
+test('native seek jump is not progress; keep watching, no further nudges', (t) => {
   const tick = clock(t);
   const { player, video } = nativeFixture(t);
   const states = [];
@@ -487,7 +487,7 @@ test('原生seek跳时不算推进，完成后保持观察且不再微调', (t) 
   assert.deepEqual(states, []);
 });
 
-test('原生直接播放从load后开始观察；停止释放观察器', (t) => {
+test('native direct play watches after load; stop releases watcher', (t) => {
   clock(t);
   const { player, video } = fixture(t);
   const calls = [];
@@ -506,7 +506,7 @@ test('原生直接播放从load后开始观察；停止释放观察器', (t) => 
   assert.equal(player.startupStatus(), null);
 });
 
-test('HLS回退重置呈帧/playing/推进，取消旧帧回调并单独计算原生观察期限', (t) => {
+test('HLS fallback resets frame/playing/progress, cancels old callback, own native deadline', (t) => {
   const tick = clock(t);
   const { player, video } = fixture(t);
   const frames = [];
@@ -542,7 +542,7 @@ test('HLS回退重置呈帧/playing/推进，取消旧帧回调并单独计算�
   assert.equal(player._fallbackToNative(), false);
 });
 
-test('HLS已playing后回退，原生首播前的真实错误仍报告；残余无错误事件不报', (t) => {
+test('fallback after HLS playing still reports pre-first-frame native errors; ignores benign leftovers', (t) => {
   clock(t);
   const { player, video } = fixture(t);
   video.emit('playing');
@@ -561,7 +561,7 @@ test('HLS已playing后回退，原生首播前的真实错误仍报告；残余�
   assert.equal(player._startupTimer, null);
 });
 
-test('原生错误与时间推进同一轮出现，不能将错误标为起播成功', (t) => {
+test('error and progress in same tick must not mark start success', (t) => {
   const tick = clock(t);
   const { player, video } = nativeFixture(t);
   player._watchStartup();
@@ -572,7 +572,7 @@ test('原生错误与时间推进同一轮出现，不能将错误标为起播�
   assert.equal(player.startupStatus().motion, null);
 });
 
-test('原生换台取消观察和帧回调，旧回调不得污染新频道', (t) => {
+test('native zap cancels watcher/callback; stale callback must not pollute new channel', (t) => {
   clock(t);
   const { player, video } = nativeFixture(t);
   let frame;
@@ -588,7 +588,7 @@ test('原生换台取消观察和帧回调，旧回调不得污染新频道', (t
   assert.equal(player.current.channel.name, 'New');
 });
 
-test('原生诊断标明路径和回退原因，未报告缓冲不伪装成0秒', (t) => {
+test('diagnostics show path/reason; unreported buffer not faked as 0s', (t) => {
   clock(t);
   const { player, video } = nativeFixture(t);
   player._phase.native = Date.now();
@@ -603,7 +603,7 @@ test('原生诊断标明路径和回退原因，未报告缓冲不伪装成0秒'
   assert.doesNotMatch(el.innerHTML, /Buffer 0|undefined|NaN/);
 });
 
-test('回退后迟到的HLS清单、档位和编码回调不得再启动或污染原生播放', (t) => {
+test('late HLS playlist/level/codec callbacks after fallback must not touch native', (t) => {
   clock(t);
   const { player, video } = fixture(t);
   for (const name of ['self', 'window']) {
@@ -626,7 +626,7 @@ test('回退后迟到的HLS清单、档位和编码回调不得再启动或污�
   player._fallbackToNative('media');
   let plays = 0;
   video.play = () => { plays++; return Promise.resolve(); };
-  old.startLoad = () => assert.fail('已销毁的HLS不能加载');
+  old.startLoad = () => assert.fail('destroyed HLS instance cannot load');
   handlers.get(Hls.Events.MANIFEST_PARSED)();
   handlers.get(Hls.Events.LEVEL_LOADED)(null, { details: { live: true, fragments: [{}] } });
   handlers.get(Hls.Events.BUFFER_CODECS)(null, { video: { codec: 'stale' } });
@@ -637,7 +637,7 @@ test('回退后迟到的HLS清单、档位和编码回调不得再启动或污�
   assert.equal(player.activePath(), 'native');
 });
 
-test('原生回退重新启动失败看门狗，保留总耗时且清除旧waiting定时器', async () => {
+test('native fallback restarts watchdog, keeps total elapsed, clears old waiting timer', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const a = source.indexOf('function beginLoading(');
   const b = source.indexOf('function endLoading()', a);
@@ -663,7 +663,7 @@ test('原生回退重新启动失败看门狗，保留总耗时且清除旧waiti
   assert.deepEqual(shown, [true]);
 });
 
-test('原生首个playing保持起播遮罩，真实推进后才结束；HLS仍由playing结束', async () => {
+test('first native playing keeps start overlay until real progress; HLS ends on playing', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const c = source.indexOf('player.onStateChange =');
   const d = source.indexOf('\n};', c) + 3;
@@ -683,7 +683,7 @@ test('原生首个playing保持起播遮罩，真实推进后才结束；HLS仍�
     rememberPlayingSource() {},
     loading: value => shown.push(value),
     endLoading: () => { sandbox.zapStarting = false; shown.push(false); },
-    setTimeout() { assert.fail('起播阶段不能启动播放中waiting防抖'); }
+    setTimeout() { assert.fail('startup phase must not start playing-state waiting debounce'); }
   };
   const context = vm.createContext(sandbox);
   vm.runInContext(source.slice(c, d), context);
@@ -726,7 +726,7 @@ function nativeAutoFixture(t) {
 }
 
 for (const readyState of [0, 4]) {
-  test(`自动档原生R${readyState}无推进超时只尝试一次hls.js`, (t) => {
+  test(`auto native R${readyState} timeout tries hls.js once`, (t) => {
     const tick = clock(t);
     const { player, video } = nativeAutoFixture(t);
     const states = [];
@@ -737,7 +737,7 @@ for (const readyState of [0, 4]) {
     player._watchStartup();
     video.readyState = readyState;
     video.emit('playing');
-    assert.equal(player._playedOnce, false, '静止首帧不能冒充播放成功');
+    assert.equal(player._playedOnce, false, 'frozen first frame cannot fake playback success');
     tick(9800);
     assert.equal(player.activePath(), 'native');
     tick(200);
@@ -745,7 +745,7 @@ for (const readyState of [0, 4]) {
     assert.ok(player.hls);
     assert.equal(player._triedNativeFallback, true);
     assert.equal(player._nativeUrls.has(player._rawUrl), false);
-    assert.equal(player._phase.t0, 110000, '新管线需要独立起播观察期限');
+    assert.equal(player._phase.t0, 110000, 'new pipeline needs its own startup deadline');
     assert.equal(player._startupTimer, null);
     assert.equal(video.error, null);
     assert.equal(errors.length, 0);
@@ -756,7 +756,7 @@ for (const readyState of [0, 4]) {
 }
 
 for (const code of [2, 3, 4]) {
-  test(`自动档原生首播错误${code}可试hls.js且清除旧媒体错误`, (t) => {
+  test(`auto native first-frame error ${code} may try hls.js and clears old media error`, (t) => {
     clock(t);
     const { player, video } = nativeAutoFixture(t);
     const errors = [];
@@ -773,12 +773,12 @@ for (const code of [2, 3, 4]) {
 }
 
 for (const [name, configure] of [
-  ['显式原生档', p => { p._decoder = 'native'; }],
-  ['已从hls.js回退', p => { p._triedNativeFallback = true; }],
-  ['非HLS流', p => { p._rawUrl = 'https://example.test/live.ts'; }],
-  ['MSE不可用', () => { Hls.isSupported = () => false; }]
+  ['explicit native tier', p => { p._decoder = 'native'; }],
+  ['already fell back from hls.js', p => { p._triedNativeFallback = true; }],
+  ['non-HLS stream', p => { p._rawUrl = 'https://example.test/live.ts'; }],
+  ['MSE unavailable', () => { Hls.isSupported = () => false; }]
 ]) {
-  test(`${name}原生超时仅报错一次，不切解码器`, (t) => {
+  test(`${name} native timeout reports once without switching decoder`, (t) => {
     const tick = clock(t);
     const { player, video } = nativeAutoFixture(t);
     configure(player);
@@ -797,7 +797,7 @@ for (const [name, configure] of [
   });
 }
 
-test('原生重连无数据超时交给上层，不继续静默等待', (t) => {
+test('native reconnect without data times out to caller', (t) => {
   const tick = clock(t);
   const { player, video } = nativeAutoFixture(t);
   player._triedNativeFallback = true;
@@ -810,7 +810,7 @@ test('原生重连无数据超时交给上层，不继续静默等待', (t) => {
   assert.equal(video.paused, true);
 });
 
-test('回看原生超时不切hls.js或重置节目位置', (t) => {
+test('catch-up native timeout does not switch HLS or reset position', (t) => {
   const tick = clock(t);
   const { player, video } = nativeAutoFixture(t);
   player.mode = 'catchup';
@@ -823,7 +823,7 @@ test('回看原生超时不切hls.js或重置节目位置', (t) => {
   assert.equal(errors.length, 0);
 });
 
-test('原生在超时采样同时已有真实推进时应判为成功', (t) => {
+test('real progress at timeout sample counts as success', (t) => {
   const tick = clock(t);
   const { player, video } = nativeAutoFixture(t);
   const errors = [];
@@ -838,7 +838,7 @@ test('原生在超时采样同时已有真实推进时应判为成功', (t) => {
   assert.equal(errors.length, 0);
 });
 
-test('原生反向兜底后hls.js致命编码错误仍必须报告，不再静默吞错', (t) => {
+test('fatal hls.js codec error after reverse fallback must still report', (t) => {
   const tick = clock(t);
   const { player, video } = nativeAutoFixture(t);
   const originalOn = Hls.prototype.on;
@@ -856,12 +856,12 @@ test('原生反向兜底后hls.js致命编码错误仍必须报告，不再静�
   errorHandler(null, { fatal: true, type: Hls.ErrorTypes.MEDIA_ERROR, details: 'bufferAddCodecError' });
   assert.equal(errors.length, 1);
   assert.equal(player.hls, null);
-  assert.equal(player.activePath(), 'hls', '不能再踢回原生');
+  assert.equal(player.activePath(), 'hls', 'must not fall back to native again');
   errorHandler(null, { fatal: true, details: 'bufferAddCodecError' });
-  assert.equal(errors.length, 1, '销毁后的迟到HLS回调应被忽略');
+  assert.equal(errors.length, 1, 'late HLS callbacks after destroy are ignored');
 });
 
-test('原生失败通知上层切备用源后，旧观察器不影响新频道', (t) => {
+test('after native failure tells caller to switch, old watcher must not affect new channel', (t) => {
   const tick = clock(t);
   const { player, video } = nativeAutoFixture(t);
   player._decoder = 'native';
@@ -877,7 +877,7 @@ test('原生失败通知上层切备用源后，旧观察器不影响新频道',
   assert.equal(player._startupTimer, null);
 });
 
-test('原生反向兜底重新给HLS看门狗完整期限且保留总起播耗时', async () => {
+test('reverse fallback gives HLS watchdog full deadline and keeps total elapsed', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const a = source.indexOf('function beginLoading(');
   const b = source.indexOf('function endLoading()', a);
@@ -898,7 +898,7 @@ test('原生反向兜底重新给HLS看门狗完整期限且保留总起播耗�
   assert.equal(deadline, 12000);
 });
 
-test('原生首帧后主动暂停不触发失败，恢复后仍有未耗完的等待时间', (t) => {
+test('manual pause after first frame is not failure; resume keeps remaining wait', (t) => {
   const tick = clock(t);
   const { player, video } = nativeAutoFixture(t);
   const errors = [];
@@ -917,7 +917,7 @@ test('原生首帧后主动暂停不触发失败，恢复后仍有未耗完的�
   assert.equal(errors.length, 1);
 });
 
-test('原生超时后的迟到error和waiting不重复提示或重开转圈', (t) => {
+test('late error/waiting after native timeout must not re-notify or respawn spinner', (t) => {
   const tick = clock(t);
   const { player, video } = nativeAutoFixture(t);
   const errors = [];
@@ -934,7 +934,7 @@ test('原生超时后的迟到error和waiting不重复提示或重开转圈', (t
   assert.deepEqual(states, []);
 });
 
-test('原生无数据且play失败保持paused也必须超时报错', (t) => {
+test('native no-data play failure stays paused and still times out', (t) => {
   const tick = clock(t);
   const { player, video } = nativeAutoFixture(t);
   player._decoder = 'native';
@@ -947,7 +947,7 @@ test('原生无数据且play失败保持paused也必须超时报错', (t) => {
   assert.equal(errors.length, 1);
 });
 
-test('上层看门狗不把已就绪媒体的暂停误判为坏源，但无数据仍报错', async () => {
+test('watchdog must not flag paused ready media as bad; no data still errors', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const a = source.indexOf('function onStartTimeout()');
   const b = source.indexOf('\n}', a) + 2;

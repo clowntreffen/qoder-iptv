@@ -1,5 +1,5 @@
-// 网络助手：开发预览时，把跨域/自签证书的外部地址转发到本地 Vite 代理；
-// 生产（webOS 电视）环境无同源限制，直接使用原始地址。
+
+
 export function resolveMediaUrl(uri, baseUrl) {
   const resolved = new URL(uri, baseUrl);
   if (import.meta.env?.DEV && uri.startsWith('/__proxy__?')) {

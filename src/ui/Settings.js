@@ -1,4 +1,4 @@
-// 设置菜单：画面比例、解码方式、开机自动播放、字号、语言、刷新/清理、源管理
+
 import { KEY } from '../core/keys.js';
 import { getSettings, saveSettings, clearEpgCache, clearCatchupProbe } from '../core/storage.js';
 import { t } from '../core/i18n.js';
@@ -36,12 +36,12 @@ export class Settings {
     this.onRestore = null;
     this.onClose = null;
 
-    // 鼠标：事件委托（点行切换/执行，点箭头调值，点面板外关闭）
+    
     this.el.addEventListener('click', (e) => this._onClick(e));
   }
 
   _onClick(e) {
-    // 鼠标用户没有返回键：点面板外的遮罩区即关闭
+    
     if (!e.target.closest('.panel')) {
       this.close();
       return;
@@ -57,13 +57,13 @@ export class Settings {
     const idx = rowEl ? parseInt(rowEl.dataset.idx, 10) : NaN;
     if (isNaN(idx)) return;
     this.focusIdx = idx;
-    this.render(); // 先同步高亮，后续键盘操作能从这里接上
+    this.render(); 
     if (role === 'dec') this._cycle(-1);
     else if (role === 'inc') this._cycle(1);
-    else this._confirm(); // 行本体：select 递增 / button 执行
+    else this._confirm(); 
   }
 
-  // 行定义
+  
   _rows() {
     const tracks = this.getTrackLabels ? this.getTrackLabels() : {};
     const rows = [
@@ -123,7 +123,7 @@ export class Settings {
         <div class="hint">${t('settings.hint')}</div>
       </div>
     `;
-    // 行数已超过面板高度上限，靠滚动容器容纳；焦点移到视口外时把它带回来
+    
     const focused = this.el.querySelector('.focused');
     if (focused && focused.scrollIntoView) focused.scrollIntoView({ block: 'center' });
   }
@@ -223,7 +223,7 @@ export class Settings {
         if (this.onRestore) this.onRestore();
         break;
       default:
-        this._cycle(1); // select 项 OK 也可切换
+        this._cycle(1); 
     }
   }
 

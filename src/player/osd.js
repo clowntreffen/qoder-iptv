@@ -1,9 +1,9 @@
-// 换台 OSD 信息条：频道号、台标、频道名、正在/即将播放、进度、时间
+
 import { epgStore } from '../core/epgStore.js';
 import { fmtTime, fmtClock, esc, logoHtml } from '../core/util.js';
 import { t } from '../core/i18n.js';
 
-// 实际解码尺寸 → 画质标签（IPTV 常见 3840×2160 / 2560×1440 / 1920×1080 / 1280×720 / 720×576）
+
 function resLabel(w, h) {
   if (!w || !h) return '';
   if (w >= 3000 || h >= 1700) return '4K';
@@ -14,8 +14,8 @@ function resLabel(w, h) {
   return h + 'P';
 }
 
-// 音频编码串 → 简称。mp4a.a5=AC-3、mp4a.a6=E-AC-3、mp4a.40.34=MP3，
-// 注意先判 MP3/杜比再落到 AAC，否则会被 mp4a 前缀误归为 AAC。
+
+
 function audioLabel(codec) {
   const c = String(codec || '').toLowerCase();
   if (!c) return '';
@@ -29,7 +29,7 @@ function audioLabel(codec) {
   return c.length <= 8 ? codec.toUpperCase() : '';
 }
 
-// 视频编码串 → 简称（HEVC/H.264/AV1/VP9）；认不出返回空串
+
 function videoLabel(codec) {
   const c = String(codec || '').toLowerCase();
   if (!c) return '';
@@ -45,11 +45,11 @@ export class Osd {
     this.el = el;
     this.hideTimer = null;
     this.latTimer = null;
-    this.getLatency = null; // 由外部注入：() => 落后直播的秒数，或 null
+    this.getLatency = null; 
     this.mediaInfo = null; // { width, height, videoCodec, audioCodec }
   }
 
-  // 画质/编码标签；信息未就绪时返回空串（不占位）
+  
   _fmtHtml() {
     const mi = this.mediaInfo || {};
     const res = resLabel(mi.width, mi.height);
@@ -62,8 +62,8 @@ export class Osd {
     return html;
   }
 
-  // 距直播边缘的延迟标签（跟在画质/编码标签后面）。值会随播放变化，
-  // 所以单独成一个 span，OSD 显示期间每秒刷新，不动整条 OSD（免得重置隐藏定时器）。
+  
+  
   _latHtml() {
     if (!this.getLatency) return '';
     const s = this.getLatency();
@@ -81,15 +81,15 @@ export class Osd {
     this.latTimer = setInterval(() => this._updateLat(), 1000);
   }
 
-  // 媒体信息到达（通常晚于换台瞬间）：只局部刷标签，
-  // 不重渲整条 OSD，以免重置自动隐藏定时器。
+  
+  
   setMediaInfo(info) {
     this.mediaInfo = info || null;
     const box = this.el.querySelector('.osd-fmt');
     if (box) box.innerHTML = this._fmtHtml();
   }
 
-  // 显示某频道的 OSD。duration 统一走这里的默认值，调用方一般不用传。
+  
   show(channel, { catchup = false, programme = null, duration = 8000 } = {}) {
     const nn = epgStore.getNowNext(channel);
     const nowProg = programme || nn.now;
@@ -105,7 +105,7 @@ export class Osd {
       : t('osd.nowPlayingNone');
     const nextText = nextProg ? t('osd.nextPlaying', { title: esc(nextProg.title), time: fmtTime(nextProg.start) }) : '';
     
-    // 多源指示：显示当前源序号与名称，提示左右键可切换
+    
     let srcHtml = '';
     if (channel.sources && channel.sources.length > 1) {
       const cur = channel.sources[channel.sourceIdx] || channel.sources[0];

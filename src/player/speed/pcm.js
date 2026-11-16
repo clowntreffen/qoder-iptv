@@ -1,10 +1,10 @@
-// 解码后的 PCM 存放 + WSOLA 变速不变调。
-// 都是纯计算，不碰 DOM/Web Audio，单测在 node 里直接跑。
 
-/**
- * 按「内容时间」存 PCM。下标是采样序号（秒 × 采样率取整），
- * 读的时候按任意起点、任意长度取，缺数据的地方补 0。
- */
+
+
+
+
+
+
 export class PcmStore {
   constructor() {
     this.reset();
@@ -13,14 +13,14 @@ export class PcmStore {
   reset() {
     this.sr = 0;
     this.ch = 0;
-    this.blocks = []; // {s0, n, data: Float32Array[]}，按 s0 升序
+    this.blocks = []; 
   }
 
   get empty() {
     return !this.blocks.length;
   }
 
-  /** 已存数据覆盖的总时长（秒），用来给内存兜底 */
+  
   get seconds() {
     if (!this.sr) return 0;
     let n = 0;
@@ -30,7 +30,7 @@ export class PcmStore {
 
   insert(startSec, data, sr) {
     if (!data || !data.length || !data[0].length) return;
-    // 采样率/声道变了：新旧数据没法拼着读，旧的丢掉
+    
     if (this.sr && (sr !== this.sr || data.length !== this.ch)) this.reset();
     if (!this.sr) {
       this.sr = sr;
@@ -40,7 +40,7 @@ export class PcmStore {
     const n = data[0].length;
     const e = s0 + n;
     const list = this.blocks;
-    // 被新块完整盖住的旧块直接删：hls.js 切档/回填时会把同一段再 append 一遍
+    
     for (let i = list.length - 1; i >= 0; i--) {
       const b = list[i];
       if (b.s0 >= s0 && b.s0 + b.n <= e) list.splice(i, 1);
@@ -55,7 +55,7 @@ export class PcmStore {
     list.splice(lo, 0, { s0, n, data });
   }
 
-  /** 删掉中点落在 [a,b) 秒内的块（对应 SourceBuffer.remove） */
+  
   removeSec(a, b) {
     if (!this.sr) return;
     const sa = a * this.sr;
@@ -66,7 +66,7 @@ export class PcmStore {
     });
   }
 
-  /** 第一个「结尾在 s 之后」的块的下标 */
+  
   _first(s) {
     const list = this.blocks;
     let lo = 0;
@@ -81,10 +81,10 @@ export class PcmStore {
     return i;
   }
 
-  /**
-   * 从采样 s 起往后，数据连续到哪儿。块间缝隙小于 tol（AAC 时间戳的正常抖动）当作连续。
-   * s 本身不在任何块里就原样返回 s。
-   */
+  
+
+
+
   contiguousEnd(s, tol) {
     const list = this.blocks;
     if (!list.length) return s;
@@ -101,7 +101,7 @@ export class PcmStore {
     return end;
   }
 
-  /** 读 [s, s+n) 到 out（每声道一条 Float32Array，长度 ≥ n） */
+  
   read(s, n, out) {
     for (let c = 0; c < out.length; c++) out[c].fill(0, 0, n);
     const list = this.blocks;
@@ -120,7 +120,7 @@ export class PcmStore {
     }
   }
 
-  /** 读单声道下混（WSOLA 找拼接点用） */
+  
   readMono(s, n, out, tmp) {
     this.read(s, n, tmp);
     const ch = tmp.length;
@@ -135,7 +135,7 @@ export class PcmStore {
     }
   }
 
-  /** 丢掉结尾早于 sec 的块，返回丢掉的内容时间范围（没丢返回 null） */
+  
   evictBefore(sec) {
     if (!this.sr) return null;
     const s = sec * this.sr;
@@ -149,15 +149,15 @@ export class PcmStore {
   }
 }
 
-/**
- * WSOLA（波形相似重叠相加）：按 speed 倍速吃输入、按 1× 吐输出，音调不变。
- *
- *   每一跳输出 Hs 个采样；输入名义位置前进 Ha = Hs × speed。
- *   新的一帧不硬取在名义位置，而是在 ±D 范围里找一处和「上一帧的自然延续」最像的地方，
- *   这样重叠相加时波形对得上，不会出现变速常见的「嗡嗡」相位抵消。
- *
- * 直接从 PcmStore 随机读，不自己攒输入缓冲；重新同步时 reset 到任意位置即可。
- */
+
+
+
+
+
+
+
+
+
 export class Wsola {
   constructor(store, speed) {
     this.store = store;
@@ -170,14 +170,14 @@ export class Wsola {
     const ch = this.store.ch;
     this.sr = sr;
     this.ch = ch;
-    // 帧长约 40ms、搜索 ±10ms：语音和音乐都比较稳的折中
+    
     const N = 2 * Math.round(sr * 0.02);
     const Hs = N / 2;
     this.N = N;
     this.Hs = Hs;
     this.D = Math.round(sr * 0.01);
     this.Ha = Hs * this.speed;
-    // 周期 Hann：半帧重叠相加恰好处处为 1，没有音量起伏
+    
     this.win = new Float32Array(N);
     for (let i = 0; i < N; i++) this.win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N);
     this.acc = [];
@@ -192,7 +192,7 @@ export class Wsola {
     this.tpl = new Float32Array(Hs);
   }
 
-  /** 从输入采样 pos 处重新开始（会有一次约 20ms 的自然淡入） */
+  
   reset(pos) {
     if (this.sr !== this.store.sr || this.ch !== this.store.ch || !this.win) this._setup();
     for (const a of this.acc) a.fill(0);
@@ -200,26 +200,26 @@ export class Wsola {
     this.prevP = -1;
   }
 
-  /** 名义输入位置（采样），即下一段输出对应的内容位置 */
+  
   get pos() {
     return this.a;
   }
 
-  /** 把名义位置挪一点：WSOLA 本来就在找拼接点，几毫秒的挪动听不出来，用来做音画微调 */
+  
   nudge(samples) {
     this.a += samples;
   }
 
-  /** 需要的输入都到了吗：输入要备到本次最后一跳的帧尾 + 搜索余量 */
+  
   ready(hops) {
     const need = Math.ceil(this.a + hops * this.Ha) + this.D + this.N;
     return this.store.contiguousEnd(Math.max(0, Math.round(this.a))) >= need;
   }
 
-  /**
-   * 产出 hops 跳的输出；输入还没到返回 null（调用方下一拍再来）。
-   * @returns {Float32Array[]|null} 每声道 hops × Hs 个采样
-   */
+  
+
+
+
   process(hops) {
     if (!this.win || !this.ready(hops)) return null;
     const out = [];
@@ -245,11 +245,11 @@ export class Wsola {
     this.a += this.Ha;
   }
 
-  /**
-   * 在 [base-D, base+D] 里找和模板最像的起点。
-   * 先在单声道下混上隔 4 点粗搜，再在最优点附近逐点细调：
-   * 电视 CPU 上逐点全搜每秒要上千万次乘加，粗搜能压到几百万。
-   */
+  
+
+
+
+
   _search(base, tplPos) {
     const { Hs, D, seg, tpl, tmp } = this;
     const L = Hs;
@@ -258,7 +258,7 @@ export class Wsola {
     this.store.readMono(tplPos, L, tpl, tmp);
     let te = 0;
     for (let j = 0; j < L; j += 4) te += tpl[j] * tpl[j];
-    if (te < 1e-9) return base; // 模板是静音：哪里拼都一样，取名义位置
+    if (te < 1e-9) return base; 
     const score = (k, step) => {
       let xy = 0;
       let xx = 0;

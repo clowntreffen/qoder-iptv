@@ -1,5 +1,5 @@
-// 频道自定义编辑器：改名（屏幕键盘）、单频道隐藏、EPG 偏移、清除自定义。
-// 改动写进 iptv:channelOverrides（按 ch.key），由 main 重放到频道列表。
+
+
 import { KEY } from '../core/keys.js';
 import { esc } from '../core/util.js';
 import { t } from '../core/i18n.js';
@@ -17,7 +17,7 @@ export class ChannelEditor {
     this.map = {};
     this.entering = false;
     this.draft = '';
-    this.onChanged = null; // () => void，改动后通知 main 重放并刷新列表
+    this.onChanged = null; 
     this.onClose = null;
     this.el.addEventListener('click', (e) => this._onClick(e));
     this.el.addEventListener('input', (e) => {
@@ -161,7 +161,7 @@ export class ChannelEditor {
     if (this.entering) {
       if (code === KEY.OK) { this._submitName(); return true; }
       if (code === KEY.BACK) { this.entering = false; this.render(); return true; }
-      return true; // 其它键归屏幕键盘
+      return true; 
     }
     switch (code) {
       case KEY.UP:

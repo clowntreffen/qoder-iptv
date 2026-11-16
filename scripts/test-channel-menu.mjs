@@ -1,16 +1,16 @@
 // Run: node --test scripts/test-channel-menu.mjs
-// 频道列虚拟化（窗口化渲染）的行为测试：无真实 DOM，用最小假元素模拟
-// ChannelMenu 用到的接口（classList / children / scrollTop / innerHTML 行数）。
+
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ChannelMenu } from '../src/ui/ChannelMenu.js';
 import { logoHtml, logoText, markLogoFailed } from '../src/core/util.js';
 import { saveFavorites } from '../src/core/storage.js';
 
-const CHAN_ROW_H = 100; // 与 ChannelMenu.js 内常量一致
+const CHAN_ROW_H = 100; 
 const ROWS = 5000;
 
-// node 下没有 rAF：同步执行，让 scroll 事件路径的合帧逻辑立即可断言
+
 globalThis.requestAnimationFrame = (fn) => { fn(); return 0; };
 globalThis.cancelAnimationFrame = () => {};
 
@@ -31,14 +31,14 @@ class FakeStyle {
 }
 
 class FakeEl {
-  // rowClass：该容器行的顶层类名（如 'cm-channel-item'），用于从 innerHTML
-  // 解析出行数与每行初始 class；null 表示纯容器（title/列壳），children 恒空。
+  
+  
   constructor(rowClass = null) {
     this.classList = new FakeClassList();
     this.children = [];
     this.style = new FakeStyle();
     this.scrollTop = 0;
-    this.clientHeight = 900; // 视口 9 行
+    this.clientHeight = 900; 
     this.textContent = '';
     this.dataset = {};
     this._listeners = {};
@@ -85,7 +85,7 @@ class FakeMenuRoot {
   addEventListener(type, fn) { this._listeners[type] = fn; }
   querySelector(sel) {
     if (sel.startsWith('#')) return this.byId[sel.slice(1)] || null;
-    return null; // '.focused:not(...)' 等查询：跳过其它列的滚动定位
+    return null; 
   }
 }
 
@@ -125,9 +125,9 @@ test('opening a 5000-channel group renders only the window, padding spans full h
   const { el, menu, channels } = setup();
   menu.open(channels, channels[0].key);
   const list = el.byId['cm-chan-list'];
-  const inGroup = ROWS / 2; // 菜单定位到当前频道所在分组（A 组）
+  const inGroup = ROWS / 2; 
   assert.equal(menu.isOpen(), true);
-  assert.equal(list.children.length, 19); // 视口 9 行 + 上下各 5 缓冲
+  assert.equal(list.children.length, 19); 
   assert.equal(list.style.vars['--sp-top'], '0px');
   assert.equal(list.style.vars['--sp-bottom'], (inGroup - 19) * CHAN_ROW_H + 'px');
   assert.equal(menu._winStart, 0);
@@ -155,9 +155,9 @@ test('focus beyond the viewport shifts the window and syncs scrollTop', () => {
   const { el, menu, channels } = setup();
   menu.open(channels, channels[0].key);
   const list = el.byId['cm-chan-list'];
-  for (let i = 0; i < 10; i++) menu.handleKey(40); // 第 9 步焦点顶到视口底沿触发平移
+  for (let i = 0; i < 10; i++) menu.handleKey(40); 
   assert.equal(menu.chanIdx, 10);
-  assert.equal(menu._winStart, 5); // i=9 越出 9 行视口 → 平移到 9-4
+  assert.equal(menu._winStart, 5); 
   assert.equal(list.scrollTop, 5 * CHAN_ROW_H);
   assert.equal(list.children.length, 19);
   assert.equal(list.children[5].classList.contains('focused'), true); // 10 - 5
@@ -166,14 +166,14 @@ test('focus beyond the viewport shifts the window and syncs scrollTop', () => {
 
 test('opening near the end of the list centers the window without overrunning', () => {
   const { el, menu, channels } = setup();
-  const target = channels[ROWS - 5]; // B 组成员：组内索引 = 全表索引 - 2500
+  const target = channels[ROWS - 5]; 
   menu.open(channels, target.key);
   const list = el.byId['cm-chan-list'];
   const inGroup = ROWS - 5 - ROWS / 2;
   assert.equal(menu.chanIdx, inGroup);
   assert.equal(menu._winStart, inGroup - 4);
   assert.equal(list.scrollTop, menu._winStart * CHAN_ROW_H);
-  assert.equal(list.children.length, 9); // 贴尾：B 组只剩从 2491 到末尾的 9 行
+  assert.equal(list.children.length, 9); 
   assert.equal(list.children[4].classList.contains('focused'), true);
   menu.close();
 });
@@ -190,11 +190,11 @@ test('clicking a channel row plays it and closes the menu', () => {
 test('switching groups re-anchors the window to the top of the new group', () => {
   const { el, menu, channels } = setup();
   menu.open(channels, channels[0].key);
-  for (let i = 0; i < 30; i++) menu.handleKey(40); // 深入 A 组
-  menu.handleKey(37); // LEFT -> 分组列
-  menu.handleKey(40); // DOWN -> B 组
-  menu.handleKey(39); // RIGHT -> 回频道列
-  assert.equal(menu.groupIdx, 2); // 收藏组恒为第 0 组
+  for (let i = 0; i < 30; i++) menu.handleKey(40); 
+  menu.handleKey(37); 
+  menu.handleKey(40); 
+  menu.handleKey(39); 
+  assert.equal(menu.groupIdx, 2); 
   assert.equal(menu.chanIdx, 0);
   const list = el.byId['cm-chan-list'];
   assert.equal(menu._winStart, 0);
@@ -209,16 +209,16 @@ test('favorites group always exists and INFO toggles the focused channel', () =>
   menu.open(channels, channels[0].key);
   assert.equal(menu.groups[0].fav, true);
   assert.equal(menu.groups[0].channels.length, 0);
-  menu.handleKey(37); // LEFT -> 分组列
-  menu.handleKey(38); // UP -> 收藏组
-  menu.handleKey(39); // RIGHT -> 频道列
+  menu.handleKey(37); 
+  menu.handleKey(38); 
+  menu.handleKey(39); 
   assert.match(el.byId['cm-chan-list'].innerHTML, /cm-empty/);
 
   menu.open(channels, channels[0].key);
   menu.handleKey(457); // INFO
   assert.equal(menu.groups[0].channels.length, 1);
   assert.equal(menu.groups[0].channels[0].key, channels[0].key);
-  assert.equal(menu.groupIdx, 1); // 仍在 A 组，焦点不跳走
+  assert.equal(menu.groupIdx, 1); 
 
   menu.handleKey(457); // INFO
   assert.equal(menu.groups[0].channels.length, 0);
@@ -233,16 +233,16 @@ test('playing from the favorites group passes fav zap context; normal groups pas
   const { el, menu, channels } = setup();
   const modes = [];
   menu.onPlayLive = (ch, opts) => modes.push(opts && opts.zapMode);
-  // 当前台未收藏，打开后落在普通分组；点普通频道应给 all。
+  
   menu.open(channels, channels[1].key);
 
   menu._onClick({ target: { closest: () => ({ dataset: { role: 'chan', idx: '0' } }) } });
   assert.deepEqual(modes, ['all']);
 
   menu.open(channels, channels[1].key);
-  menu.handleKey(37); // LEFT -> 分组列
-  menu.handleKey(38); // UP -> 收藏组
-  menu.handleKey(39); // RIGHT -> 频道列
+  menu.handleKey(37); 
+  menu.handleKey(38); 
+  menu.handleKey(39); 
   assert.equal(menu.groupIdx, 0);
   assert.ok(menu.groups[0].fav);
   menu._onClick({ target: { closest: () => ({ dataset: { role: 'chan', idx: '0' } }) } });
@@ -282,7 +282,7 @@ test('scroll events re-anchor the window by scrollTop (mouse wheel path)', () =>
   list._listeners.scroll();
   assert.equal(menu._winStart, 2000 - 5);
   assert.equal(list.children.length, 19);
-  // 滚回顶部
+  
   list.scrollTop = 0;
   list._listeners.scroll();
   assert.equal(menu._winStart, 0);
@@ -296,18 +296,18 @@ test('date column shows the escaped catch-up probe note and re-asks only when it
   menu.catchupNote = (ch) => 'No catch-up <' + ch.name + '>';
   menu.open(channels, channels[0].key);
   assert.equal(probed.length, 0, 'channel column alone does not probe');
-  menu.handleKey(39); // RIGHT -> 日期栏
+  menu.handleKey(39); 
   const title = el.byId['cm-epg-title'].innerHTML;
   assert.ok(probed.some((p) => p.key === channels[0].key));
   assert.equal(probed[0].recheck, true, 'expanding the date column asks for a fresh check');
   assert.match(title, /<span class="cm-cu-note">No catch-up &lt;A-0&gt;<\/span>$/);
 
-  menu.render(); // 探测结果写回后的重渲染
+  menu.render(); 
   assert.equal(probed.length, 2);
   assert.equal(probed[1].recheck, false, 'plain re-render does not ask again');
 
-  menu.handleKey(37); // LEFT -> 回到频道栏
-  menu.handleKey(39); // 再次展开
+  menu.handleKey(37); 
+  menu.handleKey(39); 
   assert.equal(probed.at(-1).recheck, true, 'reopening asks again');
   menu.close();
 });
@@ -322,19 +322,19 @@ test('date column title has no note span when nothing to report', () => {
 });
 
 test('text logo derives a short code from the channel name', () => {
-  assert.equal(logoText('CCTV-1 综合'), 'CCTV1');
-  assert.equal(logoText('CCTV-5+ 体育赛事'), 'CCTV5+');
-  assert.equal(logoText('湖南卫视'), '湖南');
-  assert.equal(logoText('【4K】超高清'), '4K');
+  assert.equal(logoText('CCTV-1 \u7efc\u5408'), 'CCTV1');
+  assert.equal(logoText('CCTV-5+ \u4f53\u80b2\u8d5b\u4e8b'), 'CCTV5+');
+  assert.equal(logoText('\u6e56\u5357\u536b\u89c6'), '\u6e56\u5357');
+  assert.equal(logoText('【4K】\u8d85\u9ad8\u6e05'), '4K');
   assert.equal(logoText('BBC One'), 'BBC');
   assert.equal(logoText('  '), '?');
 });
 
 test('logo html keeps a text tile behind the image so a failed load is not an empty box', () => {
-  const plain = logoHtml({ name: '湖南卫视' });
+  const plain = logoHtml({ name: '\u6e56\u5357\u536b\u89c6' });
   assert.doesNotMatch(plain, /<img/);
-  assert.match(plain, /^<span class="logo-txt logo-c\d w-s">湖南<\/span>$/);
-  const withImg = logoHtml({ name: 'CCTV-16 奥林匹克', logo: 'http://s/a.png?"x' });
+  assert.match(plain, /^<span class="logo-txt logo-c\d w-s">\u6e56\u5357<\/span>$/);
+  const withImg = logoHtml({ name: 'CCTV-16 \u5965\u6797\u5339\u514b', logo: 'http://s/a.png?"x' });
   assert.match(withImg, /^<img src="http:\/\/s\/a\.png\?&quot;x"[^>]*onerror="this\.remove\(\)"[^>]*\/><span class="logo-txt logo-c\d w-l">CCTV16<\/span>$/);
 });
 
@@ -347,8 +347,8 @@ test('channel column hides the logo slot only when the whole group has no logo U
   const withLogo = channels.map((ch, i) => (i === 7 ? { ...ch, logo: 'http://s/logo.png' } : ch));
   menu.open(withLogo, withLogo[0].key);
   assert.equal(list.classList.contains('no-logo'), false, 'one logo URL keeps the column');
-  menu.handleKey(37); // LEFT -> 分组列
-  menu.handleKey(40); // DOWN -> B 组（无台标）
+  menu.handleKey(37); 
+  menu.handleKey(40); 
   assert.equal(list.classList.contains('no-logo'), true);
   menu.close();
 });
@@ -358,7 +358,7 @@ test('logo column collapses when every visible logo URL has failed to load', () 
   const list = el.byId['cm-chan-list'];
   const urls = [];
   const withLogo = channels.map((ch, i) => {
-    if (i >= 19) return ch; // 只有首屏窗口内的行参与判定
+    if (i >= 19) return ch; 
     const logo = 'http://broken.test/' + ch.key + '.png';
     urls.push(logo);
     return { ...ch, logo };
@@ -368,6 +368,6 @@ test('logo column collapses when every visible logo URL has failed to load', () 
   for (const u of urls) markLogoFailed(u);
   menu.render();
   assert.equal(list.classList.contains('no-logo'), true);
-  assert.doesNotMatch(`<div class="logo">${logoHtml({ name: '湖南卫视', logo: urls[0] })}</div>`, /<img/, 'failed URLs are not requested again');
+  assert.doesNotMatch(`<div class="logo">${logoHtml({ name: '\u6e56\u5357\u536b\u89c6', logo: urls[0] })}</div>`, /<img/, 'failed URLs are not requested again');
   menu.close();
 });

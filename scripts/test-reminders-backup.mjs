@@ -107,7 +107,7 @@ test('backup never contains the parental PIN (plain or hashed)', () => {
 
   data.clear();
   assert.equal(restoreBackup(text), 1);
-  assert.equal(getSettings().parentalPin, '', '恢复备份不写入/恢复 PIN');
+  assert.equal(getSettings().parentalPin, '', 'restore backup does not write/restore PIN');
   assert.equal(getSettings().appLock, true);
 });
 

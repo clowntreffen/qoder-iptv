@@ -4,13 +4,8 @@ import { resolve } from 'path';
 import http from 'http';
 import https from 'https';
 
-// 应用版本号注入到前端（设备信息面板要显示）。
-// 从 package.json 取，跟着升版自动同步，不另外硬编一份避免忘改。
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8'));
 
-// 把 webOS 打包所需文件（appinfo.json、图标）复制到 dist。
-// THIRD-PARTY-NOTICES.txt 也必须进包：hls.js 是 Apache-2.0，分发时要随附许可全文，
-// 只放在仓库里不算——买家手上的 ipk 才是「分发物」。
 function webosAssets() {
   const files = ['appinfo.json', 'icon.png', 'largeIcon.png', 'THIRD-PARTY-NOTICES.txt'];
   return {
@@ -26,7 +21,6 @@ function webosAssets() {
   };
 }
 
-// file:// 下用普通脚本避开 CORS，并在诊断脚本之后执行以捕获加载失败。
 function classicScript() {
   return {
     name: 'classic-script',
@@ -45,8 +39,6 @@ function classicScript() {
   };
 }
 
-// 开发代理：转发外部 M3U/EPG/流，忽略自签证书、补 CORS 头；
-// 对 m3u8 播放列表重写内部切片/子列表地址，使其也走代理（解决 hls.js 跨域）。
 function devProxy() {
   const UA =
     'Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79 Safari/537.36';
@@ -62,7 +54,6 @@ function devProxy() {
         const t = line.trim();
         if (!t) return line;
         if (t.startsWith('#')) {
-          // 重写 KEY / MEDIA / MAP 等标签里的 URI="..."
           if (/URI="[^"]+"/i.test(t)) {
             return t.replace(/URI="([^"]+)"/i, (m, uri) => {
               try {
@@ -74,7 +65,6 @@ function devProxy() {
           }
           return line;
         }
-        // 非注释行 = 切片或子播放列表地址
         try {
           return proxyUrl(new URL(t, baseUrl).href);
         } catch (e) {
@@ -107,7 +97,6 @@ function devProxy() {
         const mod = targetUrl.protocol === 'https:' ? https : http;
         const options = {
           method: 'GET',
-          // 自签证书的 IPTV 网关需要显式开：VITE_PROXY_ALLOW_SELF_SIGNED=1
           rejectUnauthorized: process.env.VITE_PROXY_ALLOW_SELF_SIGNED === '1',
           headers: {
             'User-Agent': UA,
@@ -159,7 +148,6 @@ function devProxy() {
             res.destroy();
             return;
           }
-          // 上游可能已经发了头但尚未发正文，不能把旧长度/范围留在 502 上。
           for (const header of ['Content-Length', 'Content-Range', 'Accept-Ranges', 'Location']) {
             res.removeHeader(header);
           }
@@ -179,7 +167,6 @@ function devProxy() {
           res.end(out);
         }
 
-        // req.close 也会在正常 GET 读完时触发，不能把它当作客户端取消。
         req.once('aborted', onClientDone);
         res.once('close', onClientDone);
         res.once('error', onClientDone);
@@ -207,7 +194,6 @@ function devProxy() {
             }
 
             res.statusCode = up.statusCode || 502;
-            // 保留重定向状态码，目标仍通过代理访问。
             if (up.statusCode >= 300 && up.statusCode < 400 && up.headers.location) {
               let redirected;
               try {
@@ -226,13 +212,11 @@ function devProxy() {
               ct.includes('mpegurl') ||
               /\.m3u8(\?|$)/i.test(targetUrl.pathname + targetUrl.search);
 
-            // 只重写完整的成功清单；206 部分正文和 404 等错误必须原样透传。
             if (isM3u8 && up.statusCode === 200) {
               res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
               up.on('data', onPlaylistData);
               up.once('end', onPlaylistEnd);
             } else {
-              // 仅未重写的正文才能复用上游的长度/字节范围。
               for (const header of ['content-type', 'content-range', 'accept-ranges', 'content-length']) {
                 if (up.headers[header] !== undefined) res.setHeader(header, up.headers[header]);
               }
@@ -240,7 +224,6 @@ function devProxy() {
             }
           });
           upstream.on('error', onRequestError);
-          // destroy 后还可能触发 error；等 close 后再移除，避免未处理的异步错误。
           upstream.once('close', () => {
             upstream.removeListener('error', onRequestError);
             upstream.removeListener('timeout', onTimeout);
@@ -257,10 +240,6 @@ function devProxy() {
 
 export default defineConfig({
   base: './',
-  // 不再复制 public/ 到 dist：里面只有 public/default.m3u（原内置「广东联通」源），
-  // 那是一条私人 IPTV 网关地址、还带着账号 token，不该随包分发。
-  // 文件本身留在仓库里——scripts/ 下的台标复用和网关探测脚本都靠它当数据源，
-  // 路径不变，那些脚本照旧能跑。
   publicDir: false,
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version)
@@ -270,7 +249,6 @@ export default defineConfig({
     target: 'chrome79',
     emptyOutDir: true,
     modulePreload: false,
-    // IIFE 单块输出时 Vite 默认把 CSS 塞进 JS 运行时注入；关掉拆分才会产出独立的 <link>。
     cssCodeSplit: false,
     rollupOptions: {
       output: { format: 'iife', inlineDynamicImports: true }
@@ -278,8 +256,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // 默认只监听回环：/__proxy__ 是任意 URL 转发口，不能默认暴露到局域网。
-    // 需要从电视/手机访问开发预览时显式设置 VITE_DEV_HOST=0.0.0.0。
     host: process.env.VITE_DEV_HOST || '127.0.0.1'
   },
   plugins: [webosAssets(), devProxy(), classicScript()]

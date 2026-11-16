@@ -1,5 +1,5 @@
 // Run: node --test scripts/test-catchup-probe.mjs
-// 回看探测的过程记录（trace）和缓存时长：电视上没日志，没回看的原因全靠它们说清
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { probeCatchup } from '../src/core/catchup.js';
@@ -100,7 +100,7 @@ test('window probing that hits a short archive records the too-few-segments sign
 
 test('probe cache: transient results expire in minutes, clean ones keep their long TTL', (t) => {
   fakeStorage(t);
-  assert.equal(CATCHUP_TTL_OK, 3 * 24 * 3600 * 1000, '成功的结论只留 3 天');
+  assert.equal(CATCHUP_TTL_OK, 3 * 24 * 3600 * 1000, 'successful verdict kept 3 days');
   const now = Date.now();
   const preset = { catchup: 'append', catchupSource: '?x', catchupDays: 7 };
   setCatchupProbe('a', null, { reason: 'live', live: 'timeout', transient: true });

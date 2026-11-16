@@ -1,8 +1,8 @@
-// 家长 PIN 的加盐哈希。
+
 //
-// 不用 crypto.subtle：webOS 应用可能跑在非安全上下文（file://），subtle 不存在；
-// 而校验必须同步（PIN 提交回调是同步的）。这里自带一份同步 SHA-256。
-// 存储格式：`salt:hash`（hex）。旧版明文 PIN 在读取时按明文兼容，启动时迁移。
+
+
+
 
 const K = [
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -84,7 +84,7 @@ export function isHashedPin(value) {
   return typeof value === 'string' && HASH_RE.test(value);
 }
 
-// 启动迁移：明文 PIN → salt:hash；已是哈希或空值原样返回。
+
 export function migratePin(pin) {
   if (!pin || isHashedPin(pin)) return pin;
   return hashPin(pin);
@@ -103,7 +103,7 @@ function equalConstTime(a, b) {
   return diff === 0;
 }
 
-// stored 为旧版明文时按明文兼容；哈希格式则比对哈希。
+
 export function verifyPin(pin, stored) {
   const input = String(pin == null ? '' : pin);
   if (!stored) return false;

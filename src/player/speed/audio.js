@@ -1,11 +1,11 @@
-// 倍速时的声音：自己解码（AAC 走 WebCodecs / decodeAudioData，MP2 走自带的 JS 解码器）
-// → WSOLA 变速不变调 → Web Audio 按视频时钟排期。
+
+
 //
-// 视频那边靠改 timescale 让解码器「以为」自己在 1× 播，媒体时钟（原始 currentTime）照常 1 秒走 1 秒；
-// 内容时间 = 媒体时间 × speed。声音这边只要保证：
-//   某一刻听到的内容位置 == 同一刻画面的内容位置。
-// 电视上 currentTime 不是连续的（实测一格 60ms 左右跳一次），直接拿来对时会抖，
-// 所以取最近半秒「媒体时间 - 音频时钟」的最大值当偏移估计，再用小步挪 WSOLA 读点的方式慢慢追。
+
+
+
+
+
 import { PcmStore, Wsola } from './pcm.js';
 import { adtsHeader } from './isobmff.js';
 import { Mp2Decoder, parseMpegHeader } from './mp2.js';
@@ -14,7 +14,7 @@ const now = () => (typeof performance !== 'undefined' && performance.now ? perfo
 
 let sharedCtx = null;
 
-/** 全应用共用一个 AudioContext：电视上开多个容易被系统拒，也没必要 */
+
 export function getAudioContext() {
   if (sharedCtx) return sharedCtx;
   const C = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
@@ -31,18 +31,18 @@ export function getAudioContext() {
   return sharedCtx;
 }
 
-/** 在按键回调里同步调一次：浏览器要求音频上下文由用户手势唤醒 */
+
 export function primeAudio() {
   const ctx = getAudioContext();
   if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
   return ctx;
 }
 
-/**
- * 本机能走哪条解码路：
- *   webcodecs   = AudioDecoder（Chromium 94+，即 webOS 23 起）
- *   decodeaudio = 老内核兜底：每片补 ADTS 头整片 decodeAudioData
- */
+
+
+
+
+
 export async function detectAudioPath() {
   if (typeof window === 'undefined' || !(window.AudioContext || window.webkitAudioContext)) {
     return { ok: false, reason: 'no-webaudio' };
@@ -62,13 +62,13 @@ export async function detectAudioPath() {
 
 function decodeAudio(ctx, ab) {
   return new Promise((resolve, reject) => {
-    // 老 webkit 只认回调式；新内核两种都支持，回调式最稳
+    
     const p = ctx.decodeAudioData(ab, resolve, reject);
     if (p && p.catch) p.catch(reject);
   });
 }
 
-/** AudioData → 每声道一条 Float32Array。老内核 copyTo 不支持格式转换，按原格式取了自己换 */
+
 function copyPlanes(ad) {
   const n = ad.numberOfFrames;
   const ch = ad.numberOfChannels;
@@ -110,21 +110,21 @@ function copyPlanes(ad) {
 }
 
 const TICK_MS = 50;
-const AHEAD = 0.35; // 往前排多少秒的声音
-const HOPS = 4; // 每个 AudioBuffer 装几跳（约 80ms）
-const MP2_SLICE_MS = 8; // JS 解 MP2 每次最多占主线程多久，剩下的让出去下一拍接着解
-const MP2_BAD_JOBS = 3; // 连着几批大半是坏帧就认定解不了
+const AHEAD = 0.35; 
+const HOPS = 4; 
+const MP2_SLICE_MS = 8; 
+const MP2_BAD_JOBS = 3; 
 
 export class AudioPipeline {
-  /**
-   * @param {object} o
-   * @param {HTMLMediaElement} o.video
-   * @param {number} o.speed
-   * @param {'webcodecs'|'decodeaudio'} o.path
-   * @param {() => number} o.realTime 原始媒体时间（未换算）
-   * @param {(reason:string) => void} [o.onFail]
-   * @param {(a:number, b:number) => void} [o.onEvict] 内存兜底丢了一段，通知伪 SourceBuffer 同步 buffered
-   */
+  
+
+
+
+
+
+
+
+
   constructor(o) {
     this.video = o.video;
     this.S = o.speed;
@@ -170,7 +170,7 @@ export class AudioPipeline {
     this._timer = setInterval(() => this._tick(), TICK_MS);
   }
 
-  /* ---------------- 解码 ---------------- */
+  
 
   setInit(info) {
     this.info = info;
@@ -183,7 +183,7 @@ export class AudioPipeline {
     this.stats.path = info.codec === 'mpeg' ? 'mp2' : this.path;
   }
 
-  /** 收一批样本；t/d 是轨道刻度，offset 是 SourceBuffer.timestampOffset（秒） */
+  
   push(samples, timescale, offset) {
     if (this.dead || !this.info || !samples.length || !timescale) return;
     if (this.info.codec === 'mpeg') this._queueMpeg(samples, timescale, offset);
@@ -201,16 +201,16 @@ export class AudioPipeline {
     });
     if (kept.length !== q.length) {
       this._mpQ = kept;
-      // 解到一半的那批可能被删了，下一批不能再接着它的滤波器状态
+      
       this._mpNext = null;
     }
   }
 
-  /* ---------------- MP2：主线程分片解码 ---------------- */
+  
 
   _queueMpeg(samples, ts, off) {
     const h = parseMpegHeader(samples[0].data, 0);
-    // MP3 / MPEG-2 低采样率这些自带解码器不管，回退 1×
+    
     if (h && (h.version !== 3 || h.layer !== 2)) {
       if (this.onFail) this.onFail('audio-codec');
       return;
@@ -254,7 +254,7 @@ export class AudioPipeline {
   }
 
   _finishMpegJob(job) {
-    // 坏帧那段留着静音；大半是坏帧说明不是偶发丢包
+    
     this.stats.decErrors += job.bad;
     if (job.bad * 2 > job.samples.length) {
       if (++this._mpBad >= MP2_BAD_JOBS && this.onFail) this.onFail('audio-decode');
@@ -278,7 +278,7 @@ export class AudioPipeline {
     const info = this.info;
     const dec = new window.AudioDecoder({
       output: (ad) => this._onAudioData(ad),
-      // 退役中的旧解码器出错不算数，也别连累新的
+      
       error: (e) => {
         if (this.dec === dec) this._onDecodeError(e);
       }
@@ -295,9 +295,9 @@ export class AudioPipeline {
 
   _decodeWebCodecs(samples, ts, off) {
     try {
-      // Chromium 的 AAC 解码器只拿第一包的时间戳当基准，之后按解出的帧数往后累加：
-      // 输入一跳（拖动、补片）它不认，输出会接着旧位置往下标，把新位置的声音写到旧位置上。
-      // 所以一跳就换新解码器，旧的把已收的包解完再关。
+      
+      
+      
       const t0 = samples[0].t / ts + off;
       if (this.dec && this._nextTs != null && Math.abs(t0 - this._nextTs) > 0.05) this._retireDecoder();
       const dec = this._decoder();
@@ -349,11 +349,11 @@ export class AudioPipeline {
     }
   }
 
-  /**
-   * 兜底解码：整片补 ADTS 头交给 decodeAudioData。
-   * 每片单独解，解码器每次都从冷启动开始，片头会有一小截不准；
-   * 所以接上前一片最后两帧当预滚，解完把这截丢掉，接缝处就不咔哒。
-   */
+  
+
+
+
+
   _decodeAdts(samples, ts, off) {
     const ctx = this.ctx;
     if (!ctx) return;
@@ -393,7 +393,7 @@ export class AudioPipeline {
     if (this.dead) return;
     this.stats.decErrors++;
     this._closeDecoder();
-    // 偶发一两片坏数据能扛过去；连续失败说明这台机器/这条音轨解不了，交给上层回退 1×
+    
     if (this.stats.decErrors >= 4 && this.onFail) this.onFail('audio-decode');
   }
 
@@ -407,7 +407,7 @@ export class AudioPipeline {
     }
   }
 
-  /* ---------------- 排期 ---------------- */
+  
 
   _latency() {
     const ctx = this.ctx;
@@ -429,7 +429,7 @@ export class AudioPipeline {
       return;
     }
     if (ctx.state !== 'running') {
-      // 挂起时音频时钟不走，排了也不响；催一下，等它跑起来
+      
       if (ctx.state === 'suspended') ctx.resume().catch(() => {});
       this._halt(true);
       return;
@@ -437,7 +437,7 @@ export class AudioPipeline {
     const now = ctx.currentTime;
     this.offs.push(m - now);
     if (this.offs.length > 10) this.offs.shift();
-    // 至少攒 200ms 再开：一两次采样碰上 currentTime 停在格子里，偏移会估低
+    
     if (this.offs.length < 4) return;
     const est = Math.max.apply(null, this.offs);
     const lat = this._latency();
@@ -445,9 +445,9 @@ export class AudioPipeline {
       this._begin(now, est, lat);
     } else {
       const sr = this.store.sr;
-      // 下一块开播那一刻（再加输出延迟才被听到），画面应在的内容秒
+      
       const want = (this.nextWhen + lat + est) * this.S;
-      const drift = (this.wsola.pos / sr - want) / this.S; // 媒体秒；正＝声音超前
+      const drift = (this.wsola.pos / sr - want) / this.S; 
       this.stats.drift = drift;
       const starved = this.nextWhen < now + 0.005;
       if (starved || Math.abs(drift) > 0.25) {
@@ -466,7 +466,7 @@ export class AudioPipeline {
     const startAt = now + 0.08;
     const s = Math.round((startAt + lat + est) * this.S * this.store.sr);
     this.wsola.reset(s);
-    if (!this.wsola.ready(HOPS)) return; // 这一段还没解出来，下一拍再试
+    if (!this.wsola.ready(HOPS)) return; 
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, startAt);
     g.gain.linearRampToValueAtTime(1, startAt + 0.03);
@@ -503,7 +503,7 @@ export class AudioPipeline {
     }
   }
 
-  /** 停声：20ms 淡出防爆音。resetClock=暂停/拖动后时钟关系变了，偏移估计要重攒 */
+  
   _halt(resetClock) {
     if (resetClock) this.offs = [];
     if (!this.running) return;
@@ -530,7 +530,7 @@ export class AudioPipeline {
     }, 200);
   }
 
-  /** 实测画面倍速：内容时间增量 / 墙钟，窗口 2~4 秒，卡顿/暂停时清零重来 */
+  
   _measure(live, m) {
     if (!live) {
       this.hist = [];
@@ -544,7 +544,7 @@ export class AudioPipeline {
     if (span >= 2) this.stats.measured = (h[h.length - 1][1] - h[0][1]) / span;
   }
 
-  /** 内存兜底：正常情况下 hls.js 的 backBuffer 清理会走 remove()；万一没走，超过 150 秒就自己丢旧的 */
+  
   _evict(m) {
     if (this.store.seconds <= 150) return;
     const r = this.store.evictBefore(m * this.S - 20);

@@ -1,4 +1,4 @@
-// 上次可用源的持久化：用内存版 localStorage，不碰真实存储。
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -13,26 +13,26 @@ globalThis.localStorage = {
 
 const { getLastSourceIdx, setLastSourceIdx } = await import('../src/core/storage.js');
 
-test('默认 0，写入后能读回', () => {
-  assert.equal(getLastSourceIdx('ch:央视|CCTV1'), 0);
-  setLastSourceIdx('ch:央视|CCTV1', 2);
-  assert.equal(getLastSourceIdx('ch:央视|CCTV1'), 2);
+test('defaults to 0 and reads back after write', () => {
+  assert.equal(getLastSourceIdx('ch:cctv|CCTV1'), 0);
+  setLastSourceIdx('ch:cctv|CCTV1', 2);
+  assert.equal(getLastSourceIdx('ch:cctv|CCTV1'), 2);
 });
 
-test('非法值不写入', () => {
+test('invalid value not written', () => {
   setLastSourceIdx('k', -1);
   setLastSourceIdx('k', 1.5);
   setLastSourceIdx('k', NaN);
   assert.equal(getLastSourceIdx('k'), 0);
 });
 
-test('同一频道更新时保留最新值', () => {
+test('same-channel update keeps newest value', () => {
   setLastSourceIdx('k2', 1);
   setLastSourceIdx('k2', 3);
   assert.equal(getLastSourceIdx('k2'), 3);
 });
 
-test('映射有上限，超出时淘汰最早写入的', () => {
+test('map capped; oldest entry evicted', () => {
   for (let i = 0; i < 405; i++) setLastSourceIdx('cap' + i, 1);
   const map = JSON.parse(localStorage.getItem('iptv:lastSource'));
   assert.equal(Object.keys(map).length, 400);
@@ -40,7 +40,7 @@ test('映射有上限，超出时淘汰最早写入的', () => {
   assert.equal(map.cap404, 1);
 });
 
-test('存储内容损坏时退回 0', () => {
+test('corrupt storage falls back to 0', () => {
   localStorage.setItem('iptv:lastSource', 'not-json');
   assert.equal(getLastSourceIdx('k2'), 0);
   localStorage.setItem('iptv:lastSource', '[1,2]');

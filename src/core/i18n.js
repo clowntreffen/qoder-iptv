@@ -1,5 +1,5 @@
-// 轻量 i18n：固定英文单语字典 + t(key, params) 取词（支持 {name} 占位）。
-// UI 语言恒定英文，不再读取系统 locale / settings.language。
+
+
 
 const DICT = {
   en: {
@@ -451,11 +451,11 @@ const DICT = {
   }
 };
 
-// m3uParser 给缺少 group-title 的频道填的分组名；它也是隐藏分组设置的键，只能在显示时翻译。
-const UNGROUPED = 'Ungrouped';
-const UNGROUPED_LEGACY = '未分组';
 
-// UI 语言固定英文：不再按系统 locale 切中文，避免电视 locale 意外切成中文界面。
+const UNGROUPED = 'Ungrouped';
+const UNGROUPED_LEGACY = '\u672a\u5206\u7ec4';
+
+
 const lang = 'en';
 
 export function resolveLang() {
@@ -470,7 +470,7 @@ export function getLangPref() {
   return lang;
 }
 
-// 保留接口（设置/语言切换已移除）：永远返回 false。
+
 export function setLang() {
   return false;
 }
@@ -479,16 +479,16 @@ export function groupLabel(name) {
   return name === UNGROUPED || name === UNGROUPED_LEGACY ? t('group.ungrouped') : name;
 }
 
-// 取词：找不到键就原样返回 key。
-// params 里的字段会替换文案里的 {name} 占位符。
+
+
 export function t(key, params) {
   const table = DICT[lang] || DICT.en;
   let s = table[key];
   if (s == null) s = key;
   if (params) {
     for (const k in params) {
-      // 用 split/join 而不是 new RegExp：占位符是固定字面量，用不上正则。
-      // 而这个函数在频道列里是逐条目调的，每条都现编译一个正则纯属浪费。
+      
+      
       const ph = '{' + k + '}';
       if (s.indexOf(ph) >= 0) s = s.split(ph).join(params[k]);
     }

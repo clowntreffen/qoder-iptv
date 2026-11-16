@@ -1,5 +1,5 @@
-// 运行：node --test scripts/test-warm-gate.mjs
-// 使用假 video、受控分片 Promise 和假 fetch；不会连接任何真实直播源。
+                                             
+                                                
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -53,12 +53,12 @@ class FakeVideo {
 
 function fixture(t) {
   t.mock.method(console, 'log', () => {});
-  t.mock.method(globalThis, 'fetch', () => Promise.reject(new Error('测试禁止真实网络请求')));
+  t.mock.method(globalThis, 'fetch', () => Promise.reject(new Error('tests forbid real network')));
   setSegBudget(0);
   const video = new FakeVideo();
   const player = new Player(video);
   const base = 'https://example.test/' + (++serial);
-  player.current = { channel: { name: '测试频道' }, url: base + '/live.m3u8' };
+  player.current = { channel: { name: 'Test Channel' }, url: base + '/live.m3u8' };
   player._activePath = 'hls';
   player.hls = { config: { maxBufferLength: 30 }, destroy() {}, stopLoad() {}, loadSource() {} };
   const jobs = [];
@@ -102,7 +102,7 @@ function fragment(duration, seconds, type = 'main', sn = 1) {
   return { frag: { type, sn, duration, stats: { loading: { start: 0, end: seconds * 1000 } } } };
 }
 
-test('只计算播放头所在区间，不跨空洞、不使用 seekable', (t) => {
+test('only the playhead interval counts; no holes, no seekable', (t) => {
   const { player, video } = fixture(t);
   video.ranges = [[90, 105], [110, 180]];
   assert.equal(player._bufferAhead(), 5);
@@ -118,7 +118,7 @@ test('只计算播放头所在区间，不跨空洞、不使用 seekable', (t) =
   assert.equal(player._bufferAhead(), 0);
 });
 
-test('首帧后缓冲薄时不预热；经过 3 秒也不能强制放行', (t) => {
+test('no warm-up on thin buffer after first frame; 3s cannot force release', (t) => {
   const { player, video, jobs, queue, ahead } = fixture(t);
   queue();
   video.emit('playing');
@@ -135,7 +135,7 @@ test('首帧后缓冲薄时不预热；经过 3 秒也不能强制放行', (t) =
   assert.equal(jobs.length, 1);
 });
 
-test('结合分片时长和下载耗时确定高低水位，并采用滞回', (t) => {
+test('segment duration and download time set high/low watermarks with hysteresis', (t) => {
   const { player, video, jobs, queue, ahead } = fixture(t);
   player._recordFragLoad(fragment(6, 2));
   assert.deepEqual(player._warmThresholds(), { resume: 9, hold: 4.5 });
@@ -155,7 +155,7 @@ test('结合分片时长和下载耗时确定高低水位，并采用滞回', (t
   assert.equal(video.paused, false);
 });
 
-test('低缓冲保留在途片，完成后不启动下一片，恢复高水位才续队', async (t) => {
+test('low buffer keeps in-flight segments; resumes only at high watermark', async (t) => {
   const { player, jobs, queue, ahead } = fixture(t);
   queue();
   ahead(10, 'playing');
@@ -172,7 +172,7 @@ test('低缓冲保留在途片，完成后不启动下一片，恢复高水位�
   assert.equal(jobs.length, 2);
 });
 
-test('waiting 后即便 progress 显示高缓冲也要等 playing 恢复', async (t) => {
+test('after waiting, wait for playing even if progress shows high buffer', async (t) => {
   const { player, video, jobs, queue, ahead } = fixture(t);
   queue();
   ahead(10, 'playing');
@@ -187,7 +187,7 @@ test('waiting 后即便 progress 显示高缓冲也要等 playing 恢复', async
   assert.equal(jobs.length, 2);
 });
 
-test('paused/ended/seeking/error/低 readyState 均禁止新任务', (t) => {
+test('paused/ended/seeking/error/low readyState block new tasks', (t) => {
   const { player, video, jobs, ahead } = fixture(t);
   ahead(20, 'playing');
   for (const [key, value] of [['paused', true], ['ended', true], ['seeking', true], ['error', {}], ['readyState', 2]]) {
@@ -202,7 +202,7 @@ test('paused/ended/seeking/error/低 readyState 均禁止新任务', (t) => {
   assert.equal(jobs.length, 0);
 });
 
-test('缓冲内 seek 未发生 waiting 时，seeked 可恢复预热，不依赖重复 playing', (t) => {
+test('seek inside buffer without waiting resumes warm-up on seeked', (t) => {
   const { player, video, ahead } = fixture(t);
   ahead(20, 'playing');
   video.seeking = true;
@@ -214,7 +214,7 @@ test('缓冲内 seek 未发生 waiting 时，seeked 可恢复预热，不依赖�
   assert.equal(player._warmHold, false);
 });
 
-test('原生路径不伪造缓冲；可见缓冲足够时可以预热可复用的邻台', (t) => {
+test('native path does not fake buffers; prefetch reusable neighbours when visible buffer is enough', (t) => {
   const { player, video, jobs, queue, ahead } = fixture(t);
   player.hls = null;
   player._activePath = 'native';
@@ -227,7 +227,7 @@ test('原生路径不伪造缓冲；可见缓冲足够时可以预热可复用�
   assert.equal(jobs.length, 1);
 });
 
-test('回看态不预热，倍速按可播放的实际时间折算余量', async (t) => {
+test('catch-up does not prefetch; speed scales margin by playable time', async (t) => {
   const { player, video, jobs, queue, ahead } = fixture(t);
   video.playbackRate = 2;
   queue();
@@ -243,7 +243,7 @@ test('回看态不预热，倍速按可播放的实际时间折算余量', async
   assert.equal(jobs.length, 1);
 });
 
-test('只用主媒体片样本；慢下载不会被下一片命中立即冲掉', (t) => {
+test('use main-media samples only; slow download not flushed by next-segment hit', (t) => {
   const { player } = fixture(t);
   player._recordFragLoad(fragment(6, 10));
   assert.equal(player._warmThresholds().resume, 22);
@@ -258,7 +258,7 @@ test('只用主媒体片样本；慢下载不会被下一片命中立即冲掉',
   assert.equal(player._fragDuration, 0);
 });
 
-test('较小缓冲目标兼容长片；过慢下载不通过降低安全线来强开预热', (t) => {
+test('small buffer targets tolerate long segments; slow downloads do not lower the safety line', (t) => {
   const { player, queue, jobs, ahead } = fixture(t);
   player.hls.config.maxBufferLength = 10;
   player._recordFragLoad(fragment(10, 1));
@@ -270,15 +270,15 @@ test('较小缓冲目标兼容长片；过慢下载不通过降低安全线来�
   assert.equal(jobs.length, 0);
 });
 
-test('换到在途片所属频道时保留完整分片，清空队列并重关闸门', async (t) => {
+test('switching to an in-flight channel keeps full segments, clears the queue, re-arms the gate', async (t) => {
   const { player, jobs, queue, ahead, base } = fixture(t);
   const chan = base + '/next.m3u8';
   const urls = queue(2, chan);
   ahead(10, 'playing');
   assert.ok(pendingSeg(urls[0]));
   const generation = player._warmGeneration;
-  t.mock.method(Hls, 'isSupported', () => true); // Node 没有 MSE，明确模拟电视的 hls.js 路径
-  player.playLive({ name: '下一个台', url: chan }, 'hls');
+  t.mock.method(Hls, 'isSupported', () => true);                                  
+  player.playLive({ name: 'Next Channel', url: chan }, 'hls');
   assert.equal(player._warmGeneration, generation + 1);
   assert.equal(jobs[0].signal.aborted, false);
   assert.equal(player._warmHold, true);
@@ -290,7 +290,7 @@ test('换到在途片所属频道时保留完整分片，清空队列并重关�
 });
 
 for (const decoder of ['hls', 'native']) {
-  test('关闭后换到在途片所属频道也必须取消并释放缓存：' + decoder, async (t) => {
+  test('switching to an in-flight channel after close must cancel and release cache:' + decoder, async (t) => {
     tuning(t);
     const { player, jobs, queue, ahead, base } = fixture(t);
     const chan = base + '/next.m3u8';
@@ -299,7 +299,7 @@ for (const decoder of ['hls', 'native']) {
     ahead(10, 'playing');
     saveTuning({ ...getTuning(), prefetchSegmentBytes: 0 });
     t.mock.method(Hls, 'isSupported', () => true);
-    player.playLive({ name: '下一个台', url: chan }, decoder);
+    player.playLive({ name: 'Next Channel', url: chan }, decoder);
     assert.equal(jobs[0].signal.aborted, true);
     assert.equal(player._warmQ.length, 0);
     assert.equal(segBudget(), 0);
@@ -313,18 +313,18 @@ for (const decoder of ['hls', 'native']) {
   });
 }
 
-test('预热开启但目标走原生时也不能保留在途片', async (t) => {
+test('prefetch on but target native: do not keep in-flight segments', async (t) => {
   const { player, jobs, queue, ahead, base } = fixture(t);
   const chan = base + '/next.m3u8';
   queue(2, chan);
   ahead(10, 'playing');
-  player.playLive({ name: '原生台', url: chan }, 'native');
+  player.playLive({ name: 'Native Channel', url: chan }, 'native');
   assert.equal(jobs[0].signal.aborted, true);
   assert.equal(player._warmQ.length, 0);
   await flush();
 });
 
-test('关闭预热不影响当前台 fragParallel 的独立分片加载器', (t) => {
+test('closing prefetch does not affect the current fragParallel loader', (t) => {
   tuning(t, { prefetchSegmentBytes: 0, fragParallel: 2 });
   const { player, base } = fixture(t);
   for (const name of ['self', 'window']) {
@@ -338,14 +338,14 @@ test('关闭预热不影响当前台 fragParallel 的独立分片加载器', (t)
   t.mock.method(Hls.prototype, 'attachMedia', () => {});
   t.mock.method(Hls.prototype, 'loadSource', () => {});
   player._destroyHls();
-  player.playLive({ name: '当前台', url: base + '/live.m3u8' }, 'hls');
+  player.playLive({ name: 'Current Channel', url: base + '/live.m3u8' }, 'hls');
   assert.equal(rangeLanes(), 2);
   assert.equal(player.hls.config.fLoader, Player._fragLoaderFor(player.hls.config.loader));
   assert.equal(segBudget(), 0);
   assert.equal(fetch.mock.calls.length, 0);
 });
 
-test('取消旧任务的迟到完成不能清掉新任务的控制器', async (t) => {
+test('late completion of a cancelled task cannot clear the new controller', async (t) => {
   const { player, jobs, queue, ahead } = fixture(t);
   queue();
   ahead(10, 'playing');
@@ -360,7 +360,7 @@ test('取消旧任务的迟到完成不能清掉新任务的控制器', async (t
   assert.equal(jobs[1].signal.aborted, false);
 });
 
-test('停止后旧事件与旧清单均不能恢复预热', async (t) => {
+test('old events and playlists after stop cannot resume prefetch', async (t) => {
   const { player, video, jobs, ahead, base } = fixture(t);
   const response = deferred();
   t.mock.method(globalThis, 'fetch', () => response.promise);
@@ -377,7 +377,7 @@ test('停止后旧事件与旧清单均不能恢复预热', async (t) => {
   assert.equal(player._warmHold, true);
 });
 
-test('旧 master 返回后不再拉子清单；旧子清单不再排分片', async (t) => {
+test('late master stops child fetches; late child stops queuing', async (t) => {
   const { player, base, ahead } = fixture(t);
   ahead(10, 'playing');
   let responses = [deferred()];
@@ -403,7 +403,7 @@ test('旧 master 返回后不再拉子清单；旧子清单不再排分片', asy
 });
 
 for (const path of ['hls', 'native']) {
-  test('关闭能取消已登记但尚未发起的清单微任务：' + path, async (t) => {
+  test('close cancels registered but unstarted playlist tasks:' + path, async (t) => {
     tuning(t);
     const { player, ahead, jobs, base } = fixture(t);
     player._decoder = path;
@@ -420,7 +420,7 @@ for (const path of ['hls', 'native']) {
 
 for (const kind of ['master', 'child', 'media', 'native']) {
   for (const stage of ['response', 'text']) {
-    test('关闭后迟到清单不能读体、递归或排片：' + kind + '/' + stage, async (t) => {
+    test('late playlist after close cannot read, recurse or queue:' + kind + '/' + stage, async (t) => {
       tuning(t);
       const { player, ahead, jobs, base } = fixture(t);
       const late = deferred();
@@ -444,7 +444,7 @@ for (const kind of ['master', 'child', 'media', 'native']) {
       late.resolve(stage === 'response' ? {
         ok: true,
         body: { cancel() { cancelled++; } },
-        text() { assert.fail('关闭后的迟到清单不能继续读正文'); }
+        text() { assert.fail('late playlist after close cannot keep reading body'); }
       } : '#EXTM3U\n' + (kind === 'master' ? 'late-child.m3u8' : '#EXTINF:6,\nlate.ts'));
       await p;
       await flush();
@@ -460,7 +460,7 @@ for (const kind of ['master', 'child', 'media', 'native']) {
   }
 }
 
-test('额度 0 时直接排片也不创建队列、请求、pending 或缓存', async (t) => {
+test('quota 0 queues directly without queue, request, pending or cache', async (t) => {
   tuning(t, { prefetchSegmentBytes: 0 });
   const { player, video, jobs, queue, ahead } = fixture(t);
   const urls = queue();
@@ -480,7 +480,7 @@ test('额度 0 时直接排片也不创建队列、请求、pending 或缓存', 
 });
 
 for (const path of ['hls', 'native', 'remembered-native']) {
-  test('关闭预热时不登记邻台或读取清单：' + path, async (t) => {
+  test('prefetch off registers no neighbours or playlists:' + path, async (t) => {
     tuning(t, { prefetchSegmentBytes: 0 });
     const { player, ahead, jobs, base } = fixture(t);
     const chan = base + '/next.m3u8';
@@ -500,7 +500,7 @@ for (const path of ['hls', 'native', 'remembered-native']) {
   });
 }
 
-test('开启预热的原生邻台仍只取清单并去重，不下载不可复用的分片', async (t) => {
+test('native neighbour still only fetches and dedupes the playlist, no unusable segments', async (t) => {
   const { player, jobs, base } = fixture(t);
   player._decoder = 'native';
   t.mock.method(globalThis, 'fetch', async () => ({ text: async () => '#EXTM3U\nchild.m3u8' }));
@@ -511,7 +511,7 @@ test('开启预热的原生邻台仍只取清单并去重，不下载不可复�
   assert.equal(player._warmTargets.size, 0);
 });
 
-test('关闭立即取消在途分片、清空队列和缓存，旧任务迟到成功不能重新入缓存', async (t) => {
+test('close cancels in-flight segments, clears queue and cache; late success is not cached', async (t) => {
   tuning(t);
   const { player, queue, ahead, base } = fixture(t);
   const late = deferred();
@@ -540,7 +540,7 @@ test('关闭立即取消在途分片、清空队列和缓存，旧任务迟到�
   assert.equal(player.hls, hls);
 });
 
-test('重新开启后旧任务不能污染新缓存或清掉新任务控制器', async (t) => {
+test('a reopened old task cannot poison the new cache or clear its controller', async (t) => {
   tuning(t);
   const { player, queue, ahead, base } = fixture(t);
   const old = deferred();
@@ -568,7 +568,7 @@ test('重新开启后旧任务不能污染新缓存或清掉新任务控制器',
   assert.equal(count, 2);
 });
 
-test('原生回退清理预热并拒绝迟到的分片清单', async (t) => {
+test('native fallback clears prefetch and rejects late segment playlists', async (t) => {
   const { player, jobs, queue, ahead, base } = fixture(t);
   queue();
   ahead(10, 'playing');
@@ -586,7 +586,7 @@ test('原生回退清理预热并拒绝迟到的分片清单', async (t) => {
   assert.equal(player._warmHold, true);
 });
 
-test('过期预热任务直接丢弃，不在恢复后下载失效分片', (t) => {
+test('expired prefetch tasks are dropped; stale segments are not downloaded after resume', (t) => {
   const { player, jobs, queue, ahead } = fixture(t);
   queue();
   const now = Date.now();
@@ -596,7 +596,7 @@ test('过期预热任务直接丢弃，不在恢复后下载失效分片', (t) =
   assert.equal(jobs.length, 0);
 });
 
-test('缓冲安全后刷新过期清单，预热新的分片而不是永久停热', async (t) => {
+test('refresh stale playlist once buffer is safe; prefetch fresh segments instead of stopping forever', async (t) => {
   const { player, jobs, queue, ahead } = fixture(t);
   const oldUrls = queue();
   const now = Date.now();
@@ -616,7 +616,7 @@ test('缓冲安全后刷新过期清单，预热新的分片而不是永久停�
   assert.equal(player._warmHold, false);
 });
 
-test('切台作废的清单不占冷却窗口，旧响应收尾不能删除新请求', async (t) => {
+test('a zapped-invalidated playlist stays out of cooldown; old cleanup cannot delete the new request', async (t) => {
   const { player, base, ahead, jobs } = fixture(t);
   ahead(10, 'playing');
   const responses = [deferred(), deferred()];
@@ -641,7 +641,7 @@ test('切台作废的清单不占冷却窗口，旧响应收尾不能删除新�
   assert.match(jobs[0].job.url, /new\.ts$/);
 });
 
-test('取消 master 预热后可重新获取根清单与子清单', async (t) => {
+test('cancelling master prefetch allows refetching root and child playlists', async (t) => {
   const { player, base, ahead, jobs } = fixture(t);
   ahead(10, 'playing');
   const requests = [];
@@ -661,7 +661,7 @@ test('取消 master 预热后可重新获取根清单与子清单', async (t) =>
   assert.equal(jobs.length, 2);
 });
 
-test('诊断包含缓冲、路径、在途归属，重复 waiting 不刷日志', (t) => {
+test('diagnostics include buffer, path and in-flight owner; repeated waiting does not spam logs', (t) => {
   const { player, video, ahead } = fixture(t);
   player.current.url = 'https://example.test/live?token=do-not-log';
   ahead(4, 'playing');
@@ -676,7 +676,7 @@ test('诊断包含缓冲、路径、在途归属，重复 waiting 不刷日志',
   assert.equal(lines.join('').includes('do-not-log'), false);
 });
 
-test('旧存档补默认值、非法档位校验、新参数不传给 hls.js', (t) => {
+test('legacy storage defaults, invalid tier validation, new params not passed to hls.js', (t) => {
   tuning(t, { liveSyncDuration: 30, prefetchStartBuffer: -1, prefetchHoldBuffer: 100, prefetchAdaptive: 'off' });
   const tune = getTuning();
   assert.equal(tune.liveSyncDuration, 30);
@@ -687,7 +687,7 @@ test('旧存档补默认值、非法档位校验、新参数不传给 hls.js', (
   for (const key of ['prefetchStartBuffer', 'prefetchHoldBuffer', 'prefetchAdaptive']) assert.equal(key in config, false);
 });
 
-test('暂停余量始终低于启动余量；调整、读取、保存和恢复默认一致', (t) => {
+test('pause margin stays below start margin; adjust, read, save and default restore agree', (t) => {
   tuning(t);
   const saved = saveTuning({ ...defaultTuning(), prefetchStartBuffer: 2, prefetchHoldBuffer: 10, prefetchAdaptive: false });
   assert.equal(saved.prefetchHoldBuffer, 1);
@@ -700,7 +700,7 @@ test('暂停余量始终低于启动余量；调整、读取、保存和恢复�
   assert.deepEqual(getTuning(), defaultTuning());
 });
 
-test('关闭自适应立即按自定义门槛预热，不重新起播且卡顿仍让路', (t) => {
+test('disabling adaptive prefetches custom thresholds immediately without restart; stalls still win', (t) => {
   tuning(t);
   const { player, video, jobs, queue, ahead } = fixture(t);
   player._recordFragLoad(fragment(6, 4));
@@ -723,7 +723,7 @@ test('关闭自适应立即按自定义门槛预热，不重新起播且卡顿�
   assert.equal(player._warmThresholds().resume, 10);
 });
 
-test('面板条件显示、焦点、即时参数及关闭后重播互不混淆', (t) => {
+test('panel visibility, focus, instant params and close-replay stay separate', (t) => {
   tuning(t, { prefetchSegmentBytes: 0 });
   const classes = new Set(['hidden']);
   const el = {
@@ -765,7 +765,7 @@ test('面板条件显示、焦点、即时参数及关闭后重播互不混淆',
   assert.equal(restarts, 2);
 });
 
-test('仅恢复邻台缓冲参数时不重播，隐藏后再启用仍保留设置', (t) => {
+test('restoring neighbour buffers alone does not replay; settings survive hide and re-enable', (t) => {
   tuning(t, { prefetchStartBuffer: 3, prefetchHoldBuffer: 2, prefetchAdaptive: false });
   const classes = new Set(['hidden']);
   const panel = new PlayerTuning({
@@ -789,7 +789,7 @@ test('仅恢复邻台缓冲参数时不重播，隐藏后再启用仍保留设�
   assert.deepEqual(getTuning(), defaultTuning());
 });
 
-test('缓冲达标前不取清单，首次放行选择当时最新的分片', async (t) => {
+test('no playlist before buffer is ready; first release uses the newest segment', async (t) => {
   const { player, ahead, jobs, base } = fixture(t);
   let revision = 'early';
   let requests = 0;
@@ -806,7 +806,7 @@ test('缓冲达标前不取清单，首次放行选择当时最新的分片', as
   assert.match(jobs[0].job.url, /fresh\.ts$/);
 });
 
-test('直播持续限频补热，只下载新片；等待状态不刷新，恢复后取新清单', async (t) => {
+test('live periodic refetch downloads only new segments; no refresh while waiting; fresh playlist after recovery', async (t) => {
   const { player, ahead, jobs, video, base } = fixture(t);
   let now = Date.now();
   t.mock.method(Date, 'now', () => now);
@@ -856,7 +856,7 @@ test('直播持续限频补热，只下载新片；等待状态不刷新，恢�
   assert.match(jobs[3].job.url, /4\.ts$/);
 });
 
-test('两个邻台按登记顺序读取 master 和子清单，分片按方向交替', async (t) => {
+test('two neighbours are fetched in registration order; segments alternate direction', async (t) => {
   const { player, ahead, jobs, base } = fixture(t);
   const first = deferred();
   const calls = [];
@@ -879,7 +879,7 @@ test('两个邻台按登记顺序读取 master 和子清单，分片按方向交
   assert.match(jobs[1].job.url, /b\.ts$/);
 });
 
-test('滚动清单请求在停止时取消，不启动后续邻台', async (t) => {
+test('rolling playlist requests are cancelled on stop; no later neighbours start', async (t) => {
   const { player, ahead, jobs, base } = fixture(t);
   const signals = [];
   t.mock.method(globalThis, 'fetch', (url, options) => new Promise((resolve, reject) => {
@@ -898,7 +898,7 @@ test('滚动清单请求在停止时取消，不启动后续邻台', async (t) =
   assert.equal(jobs.length, 0);
 });
 
-test('预热关闭后始终零请求，时间推进和强制刷新都不能建连', async (t) => {
+test('prefetch off means zero requests; progress and force refresh cannot connect', async (t) => {
   tuning(t, { prefetchSegmentBytes: 0 });
   const { player, ahead, jobs, base } = fixture(t);
   let now = Date.now();
@@ -917,7 +917,7 @@ test('预热关闭后始终零请求，时间推进和强制刷新都不能建�
   assert.equal(player._warmQ, undefined);
 });
 
-test('致命错误先销毁失败实例再切备用流，旧回调不能销毁新实例', (t) => {
+test('fatal error destroys the failed instance before backup; old callback cannot destroy the new one', (t) => {
   const { player, base } = fixture(t);
   for (const name of ['self', 'window']) {
     const old = Object.getOwnPropertyDescriptor(globalThis, name);
@@ -956,7 +956,7 @@ test('致命错误先销毁失败实例再切备用流，旧回调不能销毁�
   }
 });
 
-test('预热 Range 被取消后不进入整片回退，保留取消归因', async (t) => {
+test('a cancelled range prefetch does not fall back to a whole segment; cancellation reason is kept', async (t) => {
   const { player, base, ahead } = fixture(t);
   delete player._warmOne;
   const old = rangeLanes();
@@ -967,7 +967,7 @@ test('预热 Range 被取消后不进入整片回退，保留取消归因', asyn
     requests++;
     return new Promise(() => {});
   });
-  player._warmWhole = () => assert.fail('取消后不得整片回退');
+  player._warmWhole = () => assert.fail('no whole-segment fallback after cancel');
   const chan = base + '/next.m3u8';
   player._queueWarm([base + '/range.ts'], chan);
   ahead(10, 'playing');
@@ -979,7 +979,7 @@ test('预热 Range 被取消后不进入整片回退，保留取消归因', asyn
   assert.equal(pendingSeg(base + '/range.ts'), false);
 });
 
-test('面板保存关闭后即便尚未重播，进度事件也会取消后台预热', async (t) => {
+test('save-close cancels background prefetch on progress even before replay', async (t) => {
   tuning(t);
   const { player, jobs, queue, ahead } = fixture(t);
   const urls = queue();
@@ -994,7 +994,7 @@ test('面板保存关闭后即便尚未重播，进度事件也会取消后台�
   assert.equal(jobs.length, 1);
 });
 
-test('仅保存关闭设置后，晚到的 Range 探测不得再回退整片请求', async (t) => {
+test('after save-close, a late range probe must not fall back to a whole request', async (t) => {
   tuning(t);
   const { player, base, ahead } = fixture(t);
   delete player._warmOne;
@@ -1018,7 +1018,7 @@ test('仅保存关闭设置后，晚到的 Range 探测不得再回退整片请�
   assert.equal(segBudget(), 0);
 });
 
-test('关闭后晚到的整片响应不能继续读取正文', async (t) => {
+test('late whole response after close cannot keep reading body', async (t) => {
   tuning(t);
   const { player, base } = fixture(t);
   const late = deferred();
@@ -1031,14 +1031,14 @@ test('关闭后晚到的整片响应不能继续读取正文', async (t) => {
     ok: true,
     body: {
       cancel() { cancelled++; },
-      getReader() { assert.fail('关闭后不能继续读分片响应'); }
+      getReader() { assert.fail('cannot keep reading segment response after close'); }
     }
   });
   await rejection;
   assert.equal(cancelled, 1);
 });
 
-test('读取整片期间保存关闭，下一块到达后立即停止且不能入缓存', async (t) => {
+test('save-close during a whole read stops on the next chunk and caches nothing', async (t) => {
   tuning(t);
   const { player, base, ahead } = fixture(t);
   delete player._warmOne;
@@ -1067,21 +1067,21 @@ test('读取整片期间保存关闭，下一块到达后立即停止且不能�
   assert.equal(segBudget(), 0);
 });
 
-test('整片预热无 reader 时拒绝无界读取', async (t) => {
+test('whole prefetch without reader rejects unbounded reads', async (t) => {
   const { player, base } = fixture(t);
   let cancelled = 0;
   t.mock.method(globalThis, 'fetch', async () => ({
     ok: true,
     headers: new Headers({ 'content-length': '1' }),
     body: { cancel() { cancelled++; return Promise.resolve(); } },
-    arrayBuffer() { assert.fail('不能相信声明长度而无界读取'); }
+    arrayBuffer() { assert.fail('do not trust the declared length for unbounded reads'); }
   }));
   const job = { url: base + '/no-reader.ts', chan: base + '/next.m3u8' };
   assert.equal(await player._warmWhole(job, new AbortController(), 16), null);
   assert.equal(cancelled, 1);
 });
 
-test('整片预热逐块执行容量上限并释放读取锁', async (t) => {
+test('whole prefetch enforces the capacity cap per chunk and releases the read lock', async (t) => {
   const { player, base } = fixture(t);
   let cancelled = 0;
   let body;
@@ -1098,7 +1098,7 @@ test('整片预热逐块执行容量上限并释放读取锁', async (t) => {
   assert.equal(body.locked, false);
 });
 
-test('取消整片读取不能把已收到的部分字节当作完整缓存', async (t) => {
+test('a cancelled whole read cannot cache partial bytes as complete', async (t) => {
   const { player, base } = fixture(t);
   const ctl = new AbortController();
   let cancelled = 0;
@@ -1116,7 +1116,7 @@ test('取消整片读取不能把已收到的部分字节当作完整缓存', as
   assert.equal(body.locked, false);
 });
 
-test('停止后迟到的清单响应立即取消，不能继续读取正文', async (t) => {
+test('after stop, a late playlist response is cancelled immediately', async (t) => {
   const { player, base, ahead } = fixture(t);
   const d = deferred();
   let cancelled = 0;
@@ -1128,13 +1128,13 @@ test('停止后迟到的清单响应立即取消，不能继续读取正文', as
   d.resolve({
     ok: true,
     body: { cancel() { cancelled++; } },
-    text() { assert.fail('迟到清单不再读体'); }
+    text() { assert.fail('late playlist no longer reads body'); }
   });
   await p;
   assert.equal(cancelled, 1);
 });
 
-test('点播清单只预热一次，不跟随直播时钟刷新', async (t) => {
+test('VOD playlist is prefetched once and not refreshed with the live clock', async (t) => {
   const { player, base, ahead, jobs } = fixture(t);
   let now = Date.now();
   let requests = 0;
@@ -1154,11 +1154,11 @@ test('点播清单只预热一次，不跟随直播时钟刷新', async (t) => {
   assert.equal(jobs.length, 1);
 });
 
-test('main 只按翻台方向登记邻台，不保留跨换台的串行回调', async () => {
+test('main registers neighbours by zap direction only and keeps no serial callbacks', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /firePrefetch|PREFETCH_AFTER_START_MS|PREFETCH_FALLBACK_MS|openWarmGate/);
   const start = source.indexOf('function schedulePrefetch()');
-  const end = source.indexOf('// 上一次翻台的方向', start);
+  const end = source.indexOf('let lastZapDir', start);
   assert.ok(start >= 0 && end > start);
   const channels = [0, 1, 2].map((n) => ({ key: String(n), name: String(n), url: String(n) }));
   const first = deferred();
@@ -1185,10 +1185,10 @@ test('main 只按翻台方向登记邻台，不保留跨换台的串行回调', 
   assert.deepEqual(calls, ['0', '2']);
 });
 
-test('main 收藏换台只在收藏间循环，并把 zapMode 继续传给 playLive', async () => {
+test('main fav zapping loops favourites and passes zapMode to playLive', async () => {
   const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
-  const start = source.indexOf('// 上一次翻台的方向');
-  const end = source.indexOf('// 切换当前频道的源', start);
+  const start = source.indexOf('let lastZapDir');
+  const end = source.indexOf('function switchSource', start);
   assert.ok(start >= 0 && end > start);
   const channels = [
     { key: 'A0', group: 'A' },
@@ -1205,7 +1205,7 @@ test('main 收藏换台只在收藏间循环，并把 zapMode 继续传给 playL
     favVersion: () => favVer,
     isGroupUnlocked: () => true,
     playLive: (ch, delay, mode) => {
-      app.current = ch; // 真实 playLive 会更新当前台
+      app.current = ch;                       
       calls.push({ key: ch.key, delay, mode });
     },
     showGroupHint: () => {},
@@ -1218,8 +1218,8 @@ test('main 收藏换台只在收藏间循环，并把 zapMode 继续传给 playL
   });
   vm.runInContext(source.slice(start, end), context);
 
-  context.switchByOffset(1); // A0 -> B2（收藏序）
-  context.switchByOffset(1); // B2 -> A0（绕回）
+  context.switchByOffset(1);                  
+  context.switchByOffset(1);                 
   assert.deepEqual(
     calls.map((c) => c.key),
     ['B2', 'A0']
@@ -1227,7 +1227,7 @@ test('main 收藏换台只在收藏间循环，并把 zapMode 继续传给 playL
   assert.deepEqual(
     calls.map((c) => c.mode),
     ['fav', 'fav'],
-    '收藏上下文不能被 playLive 默认参数重置'
+    'fav context is not reset by playLive defaults'
   );
 
   favs.clear();
@@ -1235,7 +1235,7 @@ test('main 收藏换台只在收藏间循环，并把 zapMode 继续传给 playL
   app.current = channels[1];
   app.zapMode = 'fav';
   calls.length = 0;
-  context.switchByOffset(1); // 当前台已不是收藏 → 退回全频道
+  context.switchByOffset(1);                     
   assert.equal(app.zapMode, 'all');
   assert.equal(calls[0].key, 'B2');
   assert.equal(calls[0].mode, 'all');
