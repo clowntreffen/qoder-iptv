@@ -7,8 +7,8 @@ An open-source M3U / IPTV player for LG webOS TVs (webOS 5.3+, tested on webOS 6
 **No channels, playlists, programmes or EPG data are included.** You add your own M3U playlist and XMLTV/DIYP EPG sources. Only use content you are legally entitled to access. The app does not bypass accounts, authentication or DRM.
 
 ## Download this fork
-[com.qoder.iptv_1.1.60_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.60/com.qoder.iptv_1.1.60_all.ipk) — built from this fork, not from upstream.  
-SHA256: `e580c27e982d4cab9c7bf13ac6acc00a75c74c7c80c6f2e110e239046906b8eb`
+[com.qoder.iptv_1.1.61_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.61/com.qoder.iptv_1.1.61_all.ipk) — built from this fork, not from upstream.  
+SHA256: `d774baee8050b739bb1ef373e51df3f8fd418f5330e68e83f73a7f15dec31891`
 
 Install with LG webOS dev mode / Glasshouse. No playlists, channels or EPG data are included.
 
@@ -17,7 +17,8 @@ See [CHANGELOG.md](CHANGELOG.md) for the full fork history.
 - Rebranded as **Qoder IPTV** with a new textless purple/blue TV-play icon and English app description.
 - Favourites are always visible as the first group in the channel menu. Add/remove with **Yellow** while watching or in the channel list, **INFO/MENU** on remotes that have them, or by tapping the ☆/★ next to a channel.
 - Channel keys are aligned: **CH+ / D-pad UP** = next channel, **CH- / D-pad DOWN** = previous channel.
-- Source liveness check waits longer before marking a source dead: **3 s per request / 6 s total** (was 1.2 s / 2.5 s), so slow IPTV gateways are not falsely marked dead.
+- Source liveness check waits longer before marking a source dead: **3 s per request / 6 s total** (was 1.2 s / 2.5 s), so slow IPTV gateways are not falsely marked dead. Source-test results now expire after 12 hours.
+- Added a runtime stall watchdog, optional M3U/EPG auto-refresh with offline cache fallback, channel search and recently watched channels, EPG details/reminders, audio/subtitle track selection, parental PIN, sleep timer and JSON backup/restore.
 - Packaging targets **Node.js 20+** (`.nvmrc` = 22) and the app declares `requiredACG: []`.
 - Remote-key documentation updated for the LG C5/MR25GA Magic Remote.
 
@@ -34,7 +35,13 @@ Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
 - XMLTV and DIYP EPG: now/next and a full-screen programme guide
 - Catch-up playback via `catchup` / `catchup-source` / `catchup-days`, with seek and playback speed control
 - Fast channel switching: adjacent-channel prefetch and tunable buffering
-- Number-key zapping, favourites, aspect ratio, native / hls.js decoder switch, remembers the last channel
+- Number-key zapping, favourites, recently watched channels and channel search
+- Runtime stall detection with automatic backup-source failover
+- Optional M3U/EPG auto-refresh with offline cache fallback
+- EPG programme details and reminders
+- Audio-track and subtitle-track selection
+- Parental PIN with optional startup lock, sleep timer, and JSON settings backup/restore
+- Aspect ratio, native / hls.js decoder switch, remembers the last channel
 - Interface language follows the system (Chinese or English) and can be switched in Settings
 
 ## Remote keys
@@ -52,6 +59,8 @@ Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
 | INFO | Info bar |
 | FF / REW | ±30 s in catch-up |
 | Stop / Back | Return to live from catch-up |
+
+In the channel menu, **Blue** opens channel search and **Yellow/INFO/MENU** toggles the favourite. In the full-screen EPG guide, **Yellow/INFO** adds or removes a reminder for the selected programme.
 
 ## Build
 Requires Node.js 20+ (Node 22 recommended; see `.nvmrc`).

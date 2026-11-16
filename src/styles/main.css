@@ -485,3 +485,70 @@ img + .logo-txt { display: none; }
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
   text-align: center; font-size: 40px; color: #b9c2cc; line-height: 1.8;
 }
+
+/* ===== 频道搜索 ===== */
+#search { background: var(--ui-scrim); }
+.search-panel { width: 1180px; height: 900px; max-height: calc(980px / var(--ui-zoom, 1)); padding: 36px 40px; }
+.search-input {
+  flex-shrink: 0; width: 100%; margin: 8px 0 16px; padding: 20px 26px; font-size: 32px;
+  color: var(--ui-text); background: var(--ui-sunken); border: 1px solid var(--ui-line);
+  border-radius: 14px; outline: none; font-family: inherit;
+}
+.search-input:focus { border-color: var(--ui-accent); box-shadow: 0 0 0 2px var(--ui-accent-soft); }
+.search-count { flex-shrink: 0; font-size: 22px; color: var(--ui-muted); padding: 0 4px 10px; }
+.search-results { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.search-row { display: flex; align-items: center; padding: 16px 20px; border-radius: 12px; }
+.search-row .num { width: 72px; flex-shrink: 0; text-align: right; font-size: 26px; color: var(--ui-muted); font-variant-numeric: tabular-nums; }
+.search-row .meta { flex: 1; min-width: 0; display: flex; align-items: baseline; }
+.search-row .name { font-size: 30px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-row .group { font-size: 21px; color: var(--ui-muted); margin-left: 14px; white-space: nowrap; }
+.search-row .now { flex: 1; min-width: 0; margin-left: 18px; font-size: 22px; color: var(--ui-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-row.focused { background: var(--ui-focus-fill); box-shadow: inset 0 0 0 2px #c8cbff; }
+.search-row.focused .num, .search-row.focused .group, .search-row.focused .now { color: #eef1ff; }
+
+/* ===== PIN 输入 ===== */
+#pin-entry { z-index: 66; background: rgba(0,0,0,0.72); display: flex; align-items: center; justify-content: center; }
+.pin-box { width: 640px; background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 28px; padding: 44px 48px; box-shadow: var(--ui-shadow); text-align: center; }
+.pin-title { font-size: 38px; font-weight: 600; margin-bottom: 10px; }
+.pin-prompt { font-size: 24px; color: var(--ui-muted); min-height: 34px; margin-bottom: 18px; }
+.pin-dots { display: flex; justify-content: center; margin-bottom: 28px; }
+.pin-dots > * + * { margin-left: 18px; }
+.pin-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ui-accent); background: transparent; }
+.pin-dot.on { background: var(--ui-accent); box-shadow: 0 0 14px rgba(180,188,255,0.6); }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 26px; }
+.pin-key { font-size: 34px; font-weight: 600; padding: 18px 0; border-radius: 14px; background: var(--ui-raised); border: 1px solid var(--ui-line); }
+.pin-key:hover { background: var(--ui-accent-soft); }
+.pin-key.zero { grid-column: 2; }
+.pin-actions { display: flex; justify-content: center; }
+.pin-actions > * + * { margin-left: 20px; }
+.pin-actions .exit-btn { min-width: 180px; }
+
+/* ===== 备份 / 恢复 ===== */
+#backup-dialog { z-index: 64; background: var(--ui-scrim); }
+.backup-panel { width: 1240px; height: 900px; max-height: calc(980px / var(--ui-zoom, 1)); }
+.backup-json {
+  flex: 1 1 auto; min-height: 0; width: 100%; resize: none; padding: 20px 24px;
+  font-family: monospace; font-size: 20px; line-height: 1.45; color: #dbe0ea;
+  background: var(--ui-sunken); border: 1px solid var(--ui-line); border-radius: 14px; outline: none;
+  -webkit-user-select: text; user-select: text;
+}
+.backup-actions { flex-shrink: 0; display: flex; margin-top: 20px; }
+.backup-actions > * + * { margin-left: 18px; }
+
+/* ===== EPG 详情 / 提醒 ===== */
+.eg-body { padding-bottom: 12px; }
+.eg-detail {
+  flex-shrink: 0; margin: 0 32px 26px; padding: 18px 26px; border: 1px solid var(--ui-line);
+  border-radius: 18px; background: var(--ui-col-side);
+}
+.eg-detail-head { display: flex; align-items: baseline; }
+.eg-detail-head > * + * { margin-left: 18px; }
+.eg-detail-title { font-size: 30px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eg-detail-time { flex-shrink: 0; font-size: 22px; color: var(--ui-muted); }
+.eg-detail-rem { flex-shrink: 0; font-size: 21px; color: var(--ui-muted); }
+.eg-detail-rem.on { color: #f2d18b; }
+.eg-detail-desc { margin-top: 8px; font-size: 23px; line-height: 1.45; color: #c5ccda; max-height: 72px; overflow: hidden; }
+.eg-detail-hint { margin-top: 6px; font-size: 20px; color: var(--ui-muted); }
+.eg-detail-empty { font-size: 24px; color: var(--ui-muted); }
+.eg-prog .reminder { flex-shrink: 0; color: #f2d18b; font-size: 21px; }
+.eg-prog.focused .reminder { color: #fff; }

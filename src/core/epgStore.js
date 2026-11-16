@@ -161,6 +161,12 @@ class EpgStore {
       return true;
     } catch (e) {
       if (loadId !== this._loadId) return null;
+      const cached = getEpgCache(url);
+      if (!this.loaded && cached && cached.data) {
+        this._ingestRaw(cached.data);
+        this._scheduleUpdate();
+        return true;
+      }
       console.warn('[EPG] XMLTV 加载失败:', e && e.message);
       return this.loaded;
     }
@@ -250,6 +256,10 @@ class EpgStore {
       .catch(() => {
         if (loadId !== this._loadId || this.pending.get(loadKey) !== p) return;
         this.pending.delete(loadKey);
+        if (!this.programmes.has(name)) {
+          const stale = getEpgCache(cacheKey);
+          if (stale && stale.data) this._mergeDay(name, ds, stale.data);
+        }
         this.retryAfter.set(loadKey, Date.now() + RETRY_DELAY);
       });
     this.pending.set(loadKey, p);

@@ -84,7 +84,11 @@ const DEFAULT_SETTINGS = {
   showNetSpeed: false, // 右下角显示当前频道的加载网速
   fontScale: 1,
   language: 'auto', // auto | zh | en
-  languageVersion: 2
+  languageVersion: 2,
+  autoRefresh: true,
+  sleepMinutes: 0,
+  parentalPin: '',
+  appLock: false
 };
 export function getSettings() {
   const raw = read('settings', {});
@@ -167,6 +171,41 @@ export function setLastSourceIdx(key, idx) {
     keys.slice(0, keys.length - SRCMEM_MAX).forEach((k) => delete map[k]);
   }
   write('lastSource', map);
+}
+
+// ---- 最近观看频道 ----
+const RECENT_MAX = 30;
+export function getRecents() {
+  const list = read('recents', []);
+  return Array.isArray(list) ? list.filter((k) => typeof k === 'string' && k) : [];
+}
+export function recordRecent(key) {
+  if (!key || typeof key !== 'string') return getRecents();
+  const list = getRecents().filter((k) => k !== key);
+  list.unshift(key);
+  list.length = Math.min(list.length, RECENT_MAX);
+  write('recents', list);
+  return list;
+}
+export function clearRecents() {
+  remove('recents');
+}
+
+// ---- M3U 离线缓存 ----
+export function getM3uCache(url) {
+  const v = read('m3u:' + url, null);
+  return v && typeof v.text === 'string' ? v : null;
+}
+export function setM3uCache(url, text, baseUrl) {
+  if (!url || typeof text !== 'string') return false;
+  return write('m3u:' + url, { text, baseUrl: baseUrl || '', fetchedAt: Date.now() });
+}
+export function clearM3uCache() {
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith(NS + 'm3u:'))
+      .forEach((k) => localStorage.removeItem(k));
+  } catch (e) {}
 }
 
 // ---- EPG 缓存 ----

@@ -3,6 +3,7 @@ import { KEY } from '../core/keys.js';
 import { epgStore } from '../core/epgStore.js';
 import { isCatchupAvailable } from '../core/catchup.js';
 import { fmtTime, fmtDayLabel, esc } from '../core/util.js';
+import { isReminder, toggleReminder } from '../core/reminders.js';
 import { t, getLang } from '../core/i18n.js';
 
 // 日期范围：前 7 天 .. 今天 .. 后 2 天
@@ -21,6 +22,7 @@ export class EpgGuide {
     this.onPlayLive = null;
     this.onPlayCatchup = null;
     this.onClose = null;
+    this.onToast = null;
     // 渲染时回调，用于探测该频道所在网关支不支持回看（见 main.js）
     this.onProbeCatchup = null;
     // 上次探测的是哪个台：打开节目单或换台时向 main.js 要一次重探
@@ -98,6 +100,7 @@ export class EpgGuide {
     this._renderDays();
     this._renderChans();
     this._renderProgs();
+    this._renderDetail();
     const f = this.el.querySelector('.focused');
     if (f && f.scrollIntoView) f.scrollIntoView({ block: 'center' });
   }
@@ -117,7 +120,8 @@ export class EpgGuide {
       <div class="eg-body">
         <div class="eg-chan-col" id="eg-chan-col"></div>
         <div class="eg-prog-col" id="eg-prog-col"></div>
-      </div>`;
+      </div>
+      <div class="eg-detail" id="eg-detail"></div>`;
     this._skeletonLang = getLang();
     this._chanSig = null; // 骨架重建后频道列需强制重绘
     this._chanArr = null;
@@ -197,10 +201,45 @@ export class EpgGuide {
               (playing ? ' now' : '') +
               (this.zone === 2 && i === this.progIdx ? ' focused' : '');
             const badge = canCatchup ? `<span class="catchup">${t('eg.catchup')}</span>` : '';
-            return `<div class="${cls}" data-role="prog" data-idx="${i}"><span class="t">${fmtTime(p.start)}-${fmtTime(p.stop)}</span><span class="p">${esc(p.title)}</span>${badge}</div>`;
+            const reminder = isReminder(ch.key, p.start) ? `<span class="reminder">${t('eg.reminderBadge')}</span>` : '';
+            return `<div class="${cls}" data-role="prog" data-idx="${i}"><span class="t">${fmtTime(p.start)}-${fmtTime(p.stop)}</span><span class="p">${esc(p.title)}</span>${reminder}${badge}</div>`;
           })
           .join('')
       : `<div class="eg-prog"><span class="p" style="color:#808a94">${t('eg.noEpg')}</span></div>`;
+  }
+
+  _renderDetail() {
+    const el = this.el.querySelector('#eg-detail');
+    if (!el) return;
+    const ch = this._curChannel();
+    const p = this.progList[this.progIdx];
+    if (!ch || !p) {
+      el.innerHTML = `<div class="eg-detail-empty">${t('eg.detailsEmpty')}</div>`;
+      return;
+    }
+    const on = isReminder(ch.key, p.start);
+    const status = on ? t('eg.reminderOn') : t('eg.reminderOff');
+    el.innerHTML = `
+      <div class="eg-detail-head">
+        <span class="eg-detail-title">${esc(p.title)}</span>
+        <span class="eg-detail-time">${fmtDayLabel(this._curOffset())} ${fmtTime(p.start)}-${fmtTime(p.stop)}</span>
+        <span class="eg-detail-rem${on ? ' on' : ''}">${status}</span>
+      </div>
+      <div class="eg-detail-desc">${esc(p.desc || t('eg.noDescription'))}</div>
+      <div class="eg-detail-hint">${t('eg.detailsHint')}</div>`;
+  }
+
+  _toggleReminder() {
+    const ch = this._curChannel();
+    const p = this.progList[this.progIdx];
+    if (!ch || !p) return;
+    const added = toggleReminder(ch.key, p.start, p.title);
+    this.render();
+    if (this.onToast) {
+      this.onToast(added
+        ? t('toast.reminderAdded', { title: p.title, time: fmtTime(p.start) })
+        : t('toast.reminderRemoved', { title: p.title }));
+    }
   }
 
   handleKey(code) {
@@ -219,6 +258,10 @@ export class EpgGuide {
         break;
       case KEY.OK:
         this._confirm();
+        break;
+      case KEY.YELLOW:
+      case KEY.INFO:
+        this._toggleReminder();
         break;
       case KEY.BACK:
         this.close();

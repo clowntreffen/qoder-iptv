@@ -9,6 +9,7 @@ import { parseM3U } from '../src/core/m3uParser.js';
 import { resolveMediaUrl } from '../src/core/net.js';
 import { KEY } from '../src/core/keys.js';
 import { esc } from '../src/core/util.js';
+import { mergeDeadUrls } from '../src/core/deadUrls.js';
 
 const source = await readFile(new URL('../src/ui/SourceManager.js', import.meta.url), 'utf8');
 const executable = source.replace(/^import .*;\r?$/gm, '').replace('export class SourceManager', 'class SourceManager');
@@ -119,6 +120,7 @@ function fixture(t, sources = [SOURCE], activeId = SOURCE.id) {
   }
   const api = vm.runInNewContext(executable + '\n;({ SourceManager, probeUrl });', {
     KEY, esc, parseM3U, URL, TextDecoder, AbortController: TestController, document,
+    mergeDeadUrls,
     setTimeout: time.setTimeout, clearTimeout: time.clearTimeout,
     t: (key, params) => key + (params ? ' ' + JSON.stringify(params) : ''),
     getSources: () => copy(stored),
@@ -916,7 +918,7 @@ test('successful writeback merges only deadUrls into the latest persisted list',
   f.replaceStored([edited, added]);
   pending.resolve(response('', { status: 404 }));
   await task;
-  assert.deepEqual(f.stored(), [{ ...edited, deadUrls: [channelUrl(0)] }, added]);
+  assert.deepEqual(f.stored().map(({ deadUrlsAt, ...rest }) => rest), [{ ...edited, deadUrls: [channelUrl(0)] }, added]);
   assert.equal(f.reloads[0].name, edited.name);
   assert.equal(f.reloads[0].epgUrl, edited.epgUrl);
 });

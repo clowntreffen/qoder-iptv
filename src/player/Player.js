@@ -542,6 +542,84 @@ export class Player {
     return { ...this.mediaInfo };
   }
 
+  _labelOf(track, index, kind) {
+    if (!track) return kind + ' ' + (index + 1);
+    const name = track.label || track.name || track.language || '';
+    const lang = track.language && track.language !== name ? track.language : '';
+    const base = name || lang || kind + ' ' + (index + 1);
+    return lang && name ? base + ' (' + lang + ')' : base;
+  }
+
+  getTrackState() {
+    if (this.hls) {
+      const audio = this.hls.audioTracks || [];
+      const subtitles = this.hls.subtitleTracks || [];
+      const ai = Number.isInteger(this.hls.audioTrack) ? this.hls.audioTrack : audio.length ? 0 : -1;
+      const si = Number.isInteger(this.hls.subtitleTrack) ? this.hls.subtitleTrack : -1;
+      return {
+        audio: audio.map((track, i) => ({ index: i, label: this._labelOf(track, i, 'Audio') })),
+        audioIndex: ai,
+        subtitles: subtitles.map((track, i) => ({ index: i, label: this._labelOf(track, i, 'Subtitle') })),
+        subtitleIndex: si
+      };
+    }
+    const nativeAudio = this.video.audioTracks || [];
+    const audio = [];
+    let audioIndex = -1;
+    for (let i = 0; i < nativeAudio.length; i++) {
+      const track = nativeAudio[i];
+      audio.push({ index: i, label: this._labelOf(track, i, 'Audio') });
+      if (track && track.enabled) audioIndex = i;
+    }
+    if (audioIndex < 0 && audio.length) audioIndex = 0;
+    const text = this.video.textTracks || [];
+    const subtitles = [];
+    let subtitleIndex = -1;
+    for (let i = 0; i < text.length; i++) {
+      const track = text[i];
+      if (!track || (track.kind !== 'subtitles' && track.kind !== 'captions')) continue;
+      subtitles.push({ index: i, label: this._labelOf(track, i, 'Subtitle') });
+      if (track.mode === 'showing') subtitleIndex = i;
+    }
+    return { audio, audioIndex, subtitles, subtitleIndex };
+  }
+
+  cycleAudio(dir = 1) {
+    const state = this.getTrackState();
+    const n = state.audio.length;
+    if (n < 2) return state;
+    let idx = state.audioIndex;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= n) idx = dir > 0 ? -1 : 0;
+    idx = (idx + dir + n) % n;
+    if (this.hls) {
+      this.hls.audioTrack = idx;
+    } else {
+      const tracks = this.video.audioTracks || [];
+      for (let i = 0; i < tracks.length; i++) tracks[i].enabled = i === idx;
+    }
+    return this.getTrackState();
+  }
+
+  cycleSubtitle(dir = 1) {
+    const state = this.getTrackState();
+    const n = state.subtitles.length;
+    if (!n) return state;
+    const options = [-1, ...state.subtitles.map((t) => t.index)];
+    let pos = options.indexOf(state.subtitleIndex);
+    if (pos < 0) pos = 0;
+    const next = options[(pos + dir + options.length) % options.length];
+    if (this.hls) {
+      this.hls.subtitleTrack = next;
+      this.hls.subtitleDisplay = next >= 0;
+    } else {
+      const tracks = this.video.textTracks || [];
+      for (const track of state.subtitles) {
+        tracks[track.index].mode = track.index === next ? 'showing' : 'disabled';
+      }
+    }
+    return this.getTrackState();
+  }
+
   // 当前播放位置落后直播边缘多少秒（回看模式返回 null，不显示）。
   // hls.js 自己算的 latency 最准（相对直播边缘、扣掉了空洞）；原生解码或它没给值时，
   // 退而用「可 seek 区间末端 − 当前播放位置」——末端即窗口里最新的画面，近似直播边缘。

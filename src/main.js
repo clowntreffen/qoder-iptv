@@ -16,8 +16,13 @@ import {
   getLastSourceIdx,
   setLastSourceIdx,
   getCatchupProbe,
-  setCatchupProbe
+  setCatchupProbe,
+  recordRecent
 } from './core/storage.js';
+import { activeDeadUrls } from './core/deadUrls.js';
+import { StallWatchdog } from './core/stallWatchdog.js';
+import { takeDueReminders } from './core/reminders.js';
+import { backupText, restoreBackup } from './core/backup.js';
 import { esc } from './core/util.js';
 import { t, setLang, getLang, groupLabel } from './core/i18n.js';
 import { Player } from './player/Player.js';
@@ -32,6 +37,9 @@ import { PlayerTuning } from './ui/PlayerTuning.js';
 import { DeviceInfo } from './ui/DeviceInfo.js';
 import { CatchupBar } from './ui/CatchupBar.js';
 import { NetSpeed } from './ui/NetSpeed.js';
+import { Search } from './ui/Search.js';
+import { PinEntry } from './ui/PinEntry.js';
+import { BackupDialog } from './ui/BackupDialog.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -62,6 +70,9 @@ const playerTuning = new PlayerTuning($('player-tuning'));
 const deviceInfo = new DeviceInfo($('device-info'), player);
 const catchupBar = new CatchupBar($('catchup-bar'), player, $('speed-badge'));
 const netSpeed = new NetSpeed($('net-speed'), player);
+const search = new Search($('search'));
+const pinEntry = new PinEntry($('pin-entry'));
+const backupDialog = new BackupDialog($('backup-dialog'));
 
 // ---- 通用 UI ----
 function toast(msg, ms = 2600) {
@@ -149,9 +160,16 @@ let stallTimer = null;
 let startWatchdog = null; // 起播看门狗：超时仍未出画面则判定失败（hls.js 卡在 manifest 时不一定报 fatal，需应用层兼底）
 let failoverCount = 0; // 本次换台已自动尝试的备用源次数
 const START_TIMEOUT_MS = 12000; // 起播超时（含 hls.js 内部重试余量）
+const runtimeStall = new StallWatchdog({
+  getPosition: () => (player.video && player.video.currentTime) || 0,
+  isActive: () => !!app.current && !player.isCatchup() && !document.hidden &&
+    !player.video.paused && !player.video.ended && !player.video.error,
+  onStall: () => handleRuntimeStall()
+});
 
 function beginLoading(preserveStart = false) {
   zapStarting = true;
+  if (typeof runtimeStall !== 'undefined') runtimeStall.stop();
   if (!preserveStart || !zapStartAt) zapStartAt = Date.now();
   clearTimeout(stallTimer);
   stallTimer = null;
@@ -163,6 +181,7 @@ function beginLoading(preserveStart = false) {
 
 function endLoading() {
   zapStarting = false;
+  if (typeof runtimeStall !== 'undefined') runtimeStall.stop();
   clearTimeout(stallTimer);
   stallTimer = null;
   clearTimeout(startWatchdog);
@@ -205,6 +224,13 @@ function tryFailover() {
   return true;
 }
 
+function handleRuntimeStall() {
+  if (player.isCatchup() || !app.current) return;
+  if (tryFailover()) return;
+  loading(false);
+  toast(t('toast.runtimeStalled'), 4000);
+}
+
 // 是否有任意浮层打开
 function anyOverlayOpen() {
   return (
@@ -214,7 +240,10 @@ function anyOverlayOpen() {
     sourceManager.isOpen() ||
     groupManager.isOpen() ||
     playerTuning.isOpen() ||
-    deviceInfo.isOpen()
+    deviceInfo.isOpen() ||
+    search.isOpen() ||
+    backupDialog.isOpen() ||
+    pinEntry.isOpen()
   );
 }
 
@@ -249,7 +278,9 @@ function useRememberedSource(ch) {
 // 出画面才算数：记的是「能播」，不是「用户点过」。
 function rememberPlayingSource() {
   const ch = app.current;
-  if (!ch || !ch.sources || ch.sources.length < 2 || player.isCatchup()) return;
+  if (!ch || player.isCatchup()) return;
+  recordRecent(ch.key);
+  if (!ch.sources || ch.sources.length < 2) return;
   if (getLastSourceIdx(ch.key) === ch.sourceIdx) return;
   setLastSourceIdx(ch.key, ch.sourceIdx);
 }
@@ -277,6 +308,7 @@ function playLive(ch, delay = 0) {
   const start = () => {
     playLive._t = null;
     failoverCount = 0; // 用户主动换台：重置备用源自动切换计数
+    runtimeStall.reset();
     liveStartAt = Date.now();
     beginLoading();
     player.playLive(ch, app.settings.decoder);
@@ -387,6 +419,7 @@ function switchSource(delta) {
   const ch = app.current;
   if (!ch || !ch.sources || ch.sources.length < 2) return false;
   failoverCount = 0; // 用户手动换源：重置自动切换计数
+  runtimeStall.reset();
   ch.sourceIdx = (ch.sourceIdx + delta + ch.sources.length) % ch.sources.length;
   applyActiveSource(ch);
   setLastChannelKey(ch.key);
@@ -459,20 +492,25 @@ function applyGroupVisibility(hiddenArr) {
   toast(t('toast.groupsApplied', { n: visible.length }));
 }
 
-async function loadSource(src) {
+async function loadSource(src, options = {}) {
   if (!src) return;
+  const silent = !!options.silent;
   const loadId = ++sourceLoadId;
   app.source = src;
   // 立即使上一个源尚未完成的 XMLTV/DIYP 请求失效，不能让旧节目单写回新源。
-  epgStore.clear();
-  loading(true);
+  if (!silent) {
+    epgStore.clear();
+    loading(true);
+  }
   try {
     const { epgUrl, channels: parsed } = await fetchM3U(src.m3uUrl);
     if (loadId !== sourceLoadId) return;
     let channels = parsed;
-    // 应用「测试」得到的失效地址过滤：去掉不可播的源，源全没了就删频道（空组自然不显示）
-    if (src.deadUrls && src.deadUrls.length) {
-      const dead = new Set(src.deadUrls);
+    // 应用「测试」得到的失效地址过滤。超过 TTL 的旧结论不再永久拉黑，
+    // 下次加载会重新尝试这些地址。
+    const deadUrls = activeDeadUrls(src);
+    if (deadUrls.length) {
+      const dead = new Set(deadUrls);
       channels = channels.filter((ch) => {
         ch.sources = ch.sources.filter((s) => !dead.has(s.url));
         if (!ch.sources.length) return false;
@@ -484,8 +522,10 @@ async function loadSource(src) {
       renumberChannels(channels);
     }
     if (!channels.length) {
-      toast(t('toast.noChannels'));
-      loading(false);
+      if (!silent) {
+        toast(t('toast.noChannels'));
+        loading(false);
+      }
       return;
     }
     applySourceCatchup(src, channels);
@@ -496,6 +536,25 @@ async function loadSource(src) {
     const visible = filterVisibleGroups(channels, src.hiddenGroups);
     app.channels = visible;
     statusBar.setSource(src.name, visible.length);
+
+    if (silent) {
+      const key = app.current && app.current.key;
+      const same = key ? visible.find((c) => c.key === key) : null;
+      if (same) {
+        same.sourceIdx = app.current.sourceIdx || 0;
+        applyActiveSource(same);
+        app.current = same;
+        if (osd.isVisible()) {
+          osd.show(same, {
+            catchup: player.isCatchup(),
+            programme: player.current && player.current.programme
+          });
+        }
+      } else if (visible.length && !app.current) {
+        playLive(visible[0]);
+      }
+      return;
+    }
 
     // 加载 EPG：只使用用户手填地址或 M3U 内的 url-tvg，不自动请求第三方节目数据。
     const finalEpg = src.epgUrl || epgUrl;
@@ -519,7 +578,7 @@ async function loadSource(src) {
     playLive(target);
     statusBar.show(5000);
   } catch (e) {
-    if (loadId !== sourceLoadId) return;
+    if (loadId !== sourceLoadId || silent) return;
     loading(false);
     const msg = (e && e.message) || '';
     toast(t('toast.loadFailed', { msg: describeFetchError(msg, src.m3uUrl) }), 8000);
@@ -566,6 +625,8 @@ function applySettings(s) {
   player.setAspect(s.aspect);
   netSpeed.setEnabled(!!s.showNetSpeed);
   document.documentElement.style.setProperty('--ui-zoom', s.fontScale || 1);
+  setSleepTimer(s.sleepMinutes);
+  scheduleAutoRefresh(!!s.autoRefresh);
   applyLanguage();
 }
 
@@ -586,6 +647,9 @@ function relocalize() {
   if (playerTuning.isOpen()) playerTuning.render();
   if (deviceInfo.isOpen()) deviceInfo.render();
   if (exitDialogOpen) renderExitDialog();
+  if (search.isOpen()) search.render();
+  if (backupDialog.isOpen()) backupDialog.render();
+  if (pinEntry.isOpen()) pinEntry.render();
   if (statusBar.isVisible()) statusBar.show(5000);
   if (osd.isVisible() && app.current) {
     osd.show(app.current, {
@@ -608,10 +672,154 @@ function fitScreen() {
 window.addEventListener('resize', fitScreen);
 window.addEventListener('orientationchange', fitScreen);
 
+// ---- PIN / 备份 / 定时器 ----
+function askPin({ title, prompt, onSubmit, onCancel }) {
+  pinEntry.open({
+    title: title || t('pin.title'),
+    prompt: prompt || t('pin.prompt'),
+    onSubmit,
+    onCancel
+  });
+}
+
+function verifyPin(pin) {
+  const expected = app.settings.parentalPin || '';
+  return !!expected && pin === expected;
+}
+
+function changePin() {
+  askPin({
+    title: t('pin.newTitle'),
+    prompt: t('pin.newPrompt'),
+    onSubmit: (pin) => {
+      setTimeout(() => {
+        askPin({
+          title: t('pin.confirmTitle'),
+          prompt: t('pin.confirmPrompt'),
+          onSubmit: (again) => {
+            if (again !== pin) {
+              toast(t('toast.pinMismatch'));
+              return false;
+            }
+            app.settings.parentalPin = pin;
+            saveSettings({ parentalPin: pin });
+            toast(t('toast.pinSet'));
+            syncSettingsPanel();
+            return true;
+          }
+        });
+      }, 0);
+      return true;
+    }
+  });
+}
+
+function clearPin() {
+  askPin({
+    title: t('pin.clearTitle'),
+    prompt: t('pin.prompt'),
+    onSubmit: (pin) => {
+      if (!verifyPin(pin)) return false;
+      app.settings.parentalPin = '';
+      app.settings.appLock = false;
+      saveSettings({ parentalPin: '', appLock: false });
+      toast(t('toast.pinCleared'));
+      syncSettingsPanel();
+      return true;
+    }
+  });
+}
+
+function syncSettingsPanel() {
+  settings.s = getSettings();
+  if (settings.isOpen()) settings.render();
+}
+
+function openBackup(mode) {
+  backupDialog.open(mode, mode === 'restore' ? '' : backupText());
+}
+
+function trackLabels() {
+  const state = player.getTrackState ? player.getTrackState() : null;
+  if (!state) return {};
+  const audio = state.audio && state.audio.length
+    ? (state.audio[state.audioIndex] || state.audio[0]).label
+    : t('label.auto');
+  const current = state.subtitleIndex >= 0
+    ? state.subtitles.find((track) => track.index === state.subtitleIndex)
+    : null;
+  const subtitle = current ? current.label : t('label.off');
+  return { audio, subtitles: subtitle };
+}
+
+let sleepTimer = null;
+let lastSleepMinutes = 0;
+function setSleepTimer(minutes) {
+  const n = Number(minutes) || 0;
+  if (n === lastSleepMinutes) return;
+  lastSleepMinutes = n;
+  clearTimeout(sleepTimer);
+  sleepTimer = null;
+  if (n <= 0) return;
+  sleepTimer = setTimeout(() => {
+    sleepTimer = null;
+    lastSleepMinutes = 0;
+    app.settings.sleepMinutes = 0;
+    saveSettings({ sleepMinutes: 0 });
+    player.stop();
+    toast(t('toast.sleepEnd'), 4000);
+    setTimeout(exitApp, 1200);
+  }, n * 60000);
+}
+
+let m3uRefreshTimer = null;
+let epgRefreshTimer = null;
+const M3U_REFRESH_MS = 6 * 3600 * 1000;
+const EPG_REFRESH_MS = 2 * 3600 * 1000;
+
+function refreshPlaylistSilently() {
+  if (!app.source || document.hidden) return;
+  loadSource(app.source, { silent: true });
+}
+
+function refreshEpgSilently() {
+  if (!app.source || document.hidden) return;
+  const url = app.source.epgUrl || epgStore.url;
+  if (!url) return;
+  epgStore.load(url, app.source.epgType || epgStore.mode, { force: true }).then((ok) => {
+    if (ok) refreshVisible();
+  });
+}
+
+function scheduleAutoRefresh(enabled) {
+  clearInterval(m3uRefreshTimer);
+  clearInterval(epgRefreshTimer);
+  m3uRefreshTimer = null;
+  epgRefreshTimer = null;
+  if (!enabled) return;
+  m3uRefreshTimer = setInterval(refreshPlaylistSilently, M3U_REFRESH_MS);
+  epgRefreshTimer = setInterval(refreshEpgSilently, EPG_REFRESH_MS);
+}
+
+function checkReminders() {
+  const due = takeDueReminders();
+  for (const r of due) {
+    const ch = app.channels.find((c) => c.key === r.channelKey);
+    if (ch) {
+      if (!player.isCatchup()) playLive(ch);
+      toast(t('toast.reminderDue', { title: r.title || ch.name }), 6000);
+    } else {
+      toast(t('toast.reminderDueGone', { title: r.title || '' }), 6000);
+    }
+  }
+}
+setInterval(checkReminders, 30000);
+
 // ---- 组件回调 ----
 channelMenu.onPlayLive = playLive;
 channelMenu.onPlayCatchup = playCatchup;
 channelMenu.onOpenSettings = () => settings.open();
+channelMenu.onOpenSearch = (key) => search.open(app.channels, key);
 channelMenu.onToast = toast;
 channelMenu.onProbeCatchup = probeChannelCatchup;
 channelMenu.catchupNote = catchupNote;
@@ -619,8 +827,26 @@ channelMenu.catchupNote = catchupNote;
 epgGuide.onPlayLive = playLive;
 epgGuide.onPlayCatchup = playCatchup;
 epgGuide.onProbeCatchup = probeChannelCatchup;
+epgGuide.onToast = toast;
 
 settings.onChange = (s) => applySettings(s);
+settings.getTrackLabels = trackLabels;
+settings.onCycleAudio = (dir) => {
+  const state = player.cycleAudio(dir);
+  const track = state.audio[state.audioIndex];
+  if (track) toast(t('toast.audioTrack', { label: track.label }));
+};
+settings.onCycleSubtitle = (dir) => {
+  const state = player.cycleSubtitle(dir);
+  const track = state.subtitleIndex >= 0
+    ? state.subtitles.find((item) => item.index === state.subtitleIndex)
+    : null;
+  toast(t('toast.subtitleTrack', { label: track ? track.label : t('label.off') }));
+};
+settings.onSetPin = changePin;
+settings.onClearPin = clearPin;
+settings.onBackup = () => openBackup('backup');
+settings.onRestore = () => openBackup('restore');
 settings.onRefreshEpg = () => {
   const url = (app.source && app.source.epgUrl) || epgStore.url;
   if (!url) { toast(t('toast.noEpgUrl')); return; }
@@ -654,6 +880,19 @@ playerTuning.onWarmChange = (tuning) => player.applyWarmTuning(tuning);
 playerTuning.getWarmStatus = () => player.getWarmBufferStatus();
 
 settings.onOpenDevice = () => deviceInfo.open();
+
+search.onPlay = playLive;
+backupDialog.onToast = toast;
+backupDialog.onRestore = (text) => {
+  try {
+    restoreBackup(text);
+    toast(t('toast.restoreDone'), 4000);
+    setTimeout(() => { try { location.reload(); } catch (e) {} }, 1200);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
 
 // 关闭调参面板且改过参数：hls.js 的配置只在 new Hls() 时读一次，所以必须重新起播才生效。
 // 回看态不去打断（重起会丢掉当前进度），标记留着，下次起播自然会应用。
@@ -698,6 +937,7 @@ player.onStateChange = (ev) => {
   } else if (ev === 'startupmoving' ||
       (ev === 'playing' && (player.activePath() !== 'native' || !zapStarting))) {
     rememberPlayingSource();
+    if (typeof runtimeStall !== 'undefined') runtimeStall.progress();
     if (zapStarting && zapStartAt) {
       const warm = player.warmStatus();
       netSpeed.setStartupMs(Date.now() - zapStartAt, warm, player.startupPhases());
@@ -711,6 +951,7 @@ player.onStateChange = (ev) => {
         stallTimer = null;
         loading(true);
       }, 1500);
+      if (typeof runtimeStall !== 'undefined') runtimeStall.waiting();
     }
   }
 };
@@ -722,7 +963,12 @@ function onKey(code, event) {
   // 退出确认对话框优先（最高）
   if (exitDialogOpen) return handleExitKey(code);
 
+  // PIN 与备份浮层
+  if (pinEntry.isOpen()) return pinEntry.handleKey(code);
+  if (backupDialog.isOpen()) return backupDialog.handleKey(code);
+
   // 浮层优先
+  if (search.isOpen()) return search.handleKey(code);
   if (groupManager.isOpen()) return groupManager.handleKey(code);
   if (playerTuning.isOpen()) return playerTuning.handleKey(code);
   if (deviceInfo.isOpen()) return deviceInfo.handleKey(code);
@@ -1040,6 +1286,12 @@ function probeTail(d) {
 
 // ---- 启动 ----
 function boot() {
+  app.settings = getSettings();
+  // 睡眠定时器只属于本次会话：重启后必须重新开启，避免一开机就自动关机。
+  if (app.settings.sleepMinutes) {
+    app.settings.sleepMinutes = 0;
+    saveSettings({ sleepMinutes: 0 });
+  }
   fitScreen();
   applySettings(app.settings);
   let sources = getSources();
@@ -1140,5 +1392,22 @@ window.addEventListener('online', () => {
     loadSource(app.source);
   }
 });
-boot();
+function startApp() {
+  const s = app.settings;
+  if (s && s.appLock && s.parentalPin) {
+    askPin({
+      title: t('pin.lockTitle'),
+      prompt: t('pin.lockPrompt'),
+      onSubmit: (pin) => {
+        if (!verifyPin(pin)) return false;
+        setTimeout(boot, 0);
+        return true;
+      },
+      onCancel: () => exitApp()
+    });
+    return;
+  }
+  boot();
+}
+startApp();
 if (window.__bootDone) window.__bootDone();

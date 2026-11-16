@@ -1,6 +1,7 @@
 // 源管理：添加/切换/删除 M3U 直播源与 EPG 地址
 import { KEY } from '../core/keys.js';
 import { getSources, saveSources, getActiveSourceId, setActiveSourceId } from '../core/storage.js';
+import { mergeDeadUrls } from '../core/deadUrls.js';
 import { parseM3U } from '../core/m3uParser.js';
 import { proxied, resolveMediaUrl } from '../core/net.js';
 import { esc } from '../core/util.js';
@@ -633,7 +634,9 @@ export class SourceManager {
         return;
       }
       src.deadUrls = [...dead];
+      src.deadUrlsAt = mergeDeadUrls(src.deadUrls, saved.deadUrlsAt);
       saved.deadUrls = src.deadUrls;
+      saved.deadUrlsAt = src.deadUrlsAt;
       saveSources(latest);
       resultMsg =
         t('sm.testDone', { kept: keptCh, dead: deadCh }) +

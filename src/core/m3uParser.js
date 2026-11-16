@@ -1,6 +1,7 @@
 // M3U / M3U8 播放列表解析
 // 支持 #EXTM3U 头部的 url-tvg / x-tvg-url，以及 #EXTINF 上的常见属性
 import { proxied } from './net.js';
+import { getM3uCache, setM3uCache } from './storage.js';
 
 const ATTR_RE = /([a-zA-Z0-9_-]+)="([^"]*)"/g;
 
@@ -269,7 +270,15 @@ export async function fetchM3U(url, timeoutMs = 45000) {
     const res = await fetch(proxied(url), { signal: controller.signal, cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
-    return parseM3U(text, responseBaseUrl(res, url));
+    const baseUrl = responseBaseUrl(res, url);
+    setM3uCache(url, text, baseUrl);
+    return parseM3U(text, baseUrl);
+  } catch (e) {
+    const cached = getM3uCache(url);
+    if (cached && cached.text) {
+      return parseM3U(cached.text, cached.baseUrl || url);
+    }
+    throw e;
   } finally {
     clearTimeout(timer);
   }

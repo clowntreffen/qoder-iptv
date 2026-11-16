@@ -2,7 +2,7 @@
 import { KEY } from '../core/keys.js';
 import { epgStore } from '../core/epgStore.js';
 import { isCatchupAvailable } from '../core/catchup.js';
-import { isFavorite, favVersion, toggleFavorite } from '../core/storage.js';
+import { isFavorite, favVersion, toggleFavorite, getRecents } from '../core/storage.js';
 import { fmtTime, fmtDayLabel, esc, logoHtml, isLogoFailed, markLogoFailed } from '../core/util.js';
 import { t, getLang, groupLabel } from '../core/i18n.js';
 
@@ -47,6 +47,7 @@ export class ChannelMenu {
     this.onPlayLive = null;
     this.onPlayCatchup = null;
     this.onOpenSettings = null;
+    this.onOpenSearch = null;
     this.onClose = null;
     this.onToast = null;
     // 日期/节目单栏展开时回调，用于探测该频道所在网关支不支持回看（见 main.js）
@@ -116,12 +117,17 @@ export class ChannelMenu {
 
   _buildGroups() {
     const favChannels = this.channels.filter((c) => isFavorite(c.key));
+    const byKey = new Map(this.channels.map((ch) => [ch.key, ch]));
+    const recentChannels = getRecents().map((key) => byKey.get(key)).filter(Boolean);
     const map = new Map();
     for (const ch of this.channels) {
       if (!map.has(ch.group)) map.set(ch.group, []);
       map.get(ch.group).push(ch);
     }
     const groups = [{ name: t('cm.favGroup'), channels: favChannels, fav: true }];
+    if (recentChannels.length) {
+      groups.push({ name: t('cm.recentGroup'), channels: recentChannels, recent: true });
+    }
     for (const [name, list] of map.entries()) {
       groups.push({ name, channels: list });
     }
@@ -557,6 +563,13 @@ export class ChannelMenu {
       case KEY.MENU:
       case KEY.YELLOW:
         this._toggleFav();
+        break;
+      case KEY.BLUE:
+        if (this.onOpenSearch) {
+          const ch = this._curChannel();
+          this.close();
+          this.onOpenSearch(ch && ch.key);
+        }
         break;
       case KEY.BACK:
         this.close();

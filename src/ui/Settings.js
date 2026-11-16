@@ -7,10 +7,12 @@ const ASPECTS = ['16:9', '4:3', 'fill'];
 const DECODERS = ['auto', 'native', 'hls'];
 const FONT_SCALES = [0.9, 1, 1.1];
 const LANGS = ['auto', 'zh', 'en'];
+const SLEEPS = [0, 15, 30, 60, 90, 120];
 
 const aspectLabel = (v) => (v === 'fill' ? t('label.fill') : v);
 const decoderLabel = (v) => (v === 'auto' ? t('label.auto') : v === 'native' ? t('label.native') : 'hls.js');
 const fontLabel = (v) => (v === 0.9 ? t('label.small') : v === 1.1 ? t('label.large') : t('label.medium'));
+const sleepLabel = (v) => (v > 0 ? t('label.minutes', { n: v }) : t('label.off'));
 const langName = (v) => (v === 'en' ? 'English' : '中文');
 const langLabel = (v) =>
   v === 'zh' || v === 'en' ? langName(v) : t('label.system', { lang: langName(resolveLang('auto')) });
@@ -27,6 +29,13 @@ export class Settings {
     this.onOpenGroups = null;
     this.onOpenTuning = null;
     this.onOpenDevice = null;
+    this.onCycleAudio = null;
+    this.onCycleSubtitle = null;
+    this.getTrackLabels = null;
+    this.onSetPin = null;
+    this.onClearPin = null;
+    this.onBackup = null;
+    this.onRestore = null;
     this.onClose = null;
 
     // 鼠标：事件委托（点行切换/执行，点箭头调值，点面板外关闭）
@@ -58,20 +67,35 @@ export class Settings {
 
   // 行定义
   _rows() {
-    return [
+    const tracks = this.getTrackLabels ? this.getTrackLabels() : {};
+    const rows = [
       { key: 'aspect', type: 'select', label: t('settings.aspect'), value: aspectLabel(this.s.aspect) },
       { key: 'decoder', type: 'select', label: t('settings.decoder'), value: decoderLabel(this.s.decoder) },
       { key: 'autoPlay', type: 'select', label: t('settings.autoPlay'), value: this.s.autoPlayLast ? t('label.on') : t('label.off') },
       { key: 'netSpeed', type: 'select', label: t('settings.netSpeed'), value: this.s.showNetSpeed ? t('label.on') : t('label.off') },
       { key: 'fontScale', type: 'select', label: t('settings.fontScale'), value: fontLabel(this.s.fontScale) },
       { key: 'language', type: 'select', label: t('settings.language'), value: langLabel(this.s.language) },
+      { key: 'audio', type: 'select', label: t('settings.audio'), value: tracks.audio || t('label.auto') },
+      { key: 'subtitles', type: 'select', label: t('settings.subtitles'), value: tracks.subtitles || t('label.off') },
+      { key: 'sleep', type: 'select', label: t('settings.sleep'), value: sleepLabel(this.s.sleepMinutes) },
+      { key: 'autoRefresh', type: 'select', label: t('settings.autoRefresh'), value: this.s.autoRefresh ? t('label.on') : t('label.off') },
       { key: 'refreshEpg', type: 'button', label: t('settings.refreshEpg') },
       { key: 'clearEpg', type: 'button', label: t('settings.clearEpg') },
       { key: 'groups', type: 'button', label: t('settings.groupManager') },
       { key: 'sources', type: 'button', label: t('settings.sourceManager') },
       { key: 'tuning', type: 'button', label: t('settings.playerTuning') },
-      { key: 'device', type: 'button', label: t('settings.deviceInfo') }
+      { key: 'device', type: 'button', label: t('settings.deviceInfo') },
+      { key: 'pin', type: 'button', label: this.s.parentalPin ? t('settings.changePin') : t('settings.setPin') },
+      { key: 'backup', type: 'button', label: t('settings.backup') },
+      { key: 'restore', type: 'button', label: t('settings.restore') }
     ];
+    if (this.s.parentalPin) {
+      rows.splice(-2, 0,
+        { key: 'appLock', type: 'select', label: t('settings.appLock'), value: this.s.appLock ? t('label.on') : t('label.off') },
+        { key: 'clearPin', type: 'button', label: t('settings.clearPin') }
+      );
+    }
+    return rows;
   }
 
   open() {
@@ -132,6 +156,23 @@ export class Settings {
       case 'language':
         this.s.language = cyc(LANGS, this.s.language || 'auto');
         break;
+      case 'audio':
+        if (this.onCycleAudio) this.onCycleAudio(dir);
+        this.render();
+        return;
+      case 'subtitles':
+        if (this.onCycleSubtitle) this.onCycleSubtitle(dir);
+        this.render();
+        return;
+      case 'sleep':
+        this.s.sleepMinutes = cyc(SLEEPS, this.s.sleepMinutes || 0);
+        break;
+      case 'autoRefresh':
+        this.s.autoRefresh = !this.s.autoRefresh;
+        break;
+      case 'appLock':
+        this.s.appLock = !this.s.appLock;
+        break;
       default:
         return;
     }
@@ -167,6 +208,20 @@ export class Settings {
       case 'device':
         this.close();
         if (this.onOpenDevice) this.onOpenDevice();
+        break;
+      case 'pin':
+        if (this.onSetPin) this.onSetPin();
+        break;
+      case 'clearPin':
+        if (this.onClearPin) this.onClearPin();
+        this.s = getSettings();
+        this.render();
+        break;
+      case 'backup':
+        if (this.onBackup) this.onBackup();
+        break;
+      case 'restore':
+        if (this.onRestore) this.onRestore();
         break;
       default:
         this._cycle(1); // select 项 OK 也可切换

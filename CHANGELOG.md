@@ -2,6 +2,16 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.61
+- Added a runtime stall watchdog: playback that stops advancing without an error automatically switches to the next source after 15 seconds.
+- Dead source URLs discovered by the source test now expire after 12 hours instead of staying blacklisted forever.
+- Added optional auto-refresh for M3U playlists (6 h) and EPG data (2 h), plus offline fallback to the last cached playlist, XMLTV data and DIYP day data.
+- Added channel search (`Blue` in the channel menu) with name, group and channel-number matching, and a **Recently Watched** group in the channel menu.
+- Added EPG programme details and reminders in the full-screen guide (`Yellow` or `INFO` to toggle a reminder).
+- Added audio-track and subtitle-track selection to Settings.
+- Added a parental PIN with optional PIN lock on startup, a sleep timer, and JSON settings backup/restore with clipboard support.
+- Settings now show the selected subtitle correctly when non-subtitle text tracks exist.
+
 ## 1.1.60
 - README now documents all fork changes and links the fork IPK download.
 - Install documentation uses [Glasshouse](https://github.com/rorygallagher2024/glasshouse) instead of Homebrew Channel.
