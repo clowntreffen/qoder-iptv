@@ -3,15 +3,16 @@ import { KEY } from '../core/keys.js';
 import { getSettings, saveSettings, clearEpgCache, clearCatchupProbe } from '../core/storage.js';
 import { t } from '../core/i18n.js';
 import { esc } from '../core/util.js';
+import { THEMES, themeName } from '../core/themes.js';
 
 const ASPECTS = ['16:9', '4:3', 'fill'];
 const DECODERS = ['auto', 'native', 'hls'];
-const FONT_SCALES = [0.9, 1, 1.1];
+const FONT_SCALES = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
 const SLEEPS = [0, 15, 30, 60, 90, 120];
 
 const aspectLabel = (v) => (v === 'fill' ? t('label.fill') : v);
 const decoderLabel = (v) => (v === 'auto' ? t('label.auto') : v === 'native' ? t('label.native') : 'hls.js');
-const fontLabel = (v) => (v === 0.9 ? t('label.small') : v === 1.1 ? t('label.large') : t('label.medium'));
+const fontLabel = (v) => `${Math.round((Number(v) || 1) * 100)}%`;
 const sleepLabel = (v) => (v > 0 ? t('label.minutes', { n: v }) : t('label.off'));
 
 export class Settings {
@@ -72,6 +73,7 @@ export class Settings {
       { key: 'autoPlay', type: 'select', label: t('settings.autoPlay'), value: this.s.autoPlayLast ? t('label.on') : t('label.off') },
       { key: 'netSpeed', type: 'select', label: t('settings.netSpeed'), value: this.s.showNetSpeed ? t('label.on') : t('label.off') },
       { key: 'fontScale', type: 'select', label: t('settings.fontScale'), value: fontLabel(this.s.fontScale) },
+      { key: 'theme', type: 'select', label: t('settings.theme'), value: themeName(this.s.theme) },
       { key: 'audio', type: 'select', label: t('settings.audio'), value: tracks.audio || t('label.auto') },
       { key: 'subtitles', type: 'select', label: t('settings.subtitles'), value: tracks.subtitles || t('label.off') },
       { key: 'sleep', type: 'select', label: t('settings.sleep'), value: sleepLabel(this.s.sleepMinutes) },
@@ -150,6 +152,9 @@ export class Settings {
         break;
       case 'fontScale':
         this.s.fontScale = cyc(FONT_SCALES, this.s.fontScale);
+        break;
+      case 'theme':
+        this.s.theme = cyc(THEMES.map((theme) => theme.id), this.s.theme);
         break;
       case 'audio':
         if (this.onCycleAudio) this.onCycleAudio(dir);

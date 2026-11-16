@@ -3,6 +3,7 @@
 
 import { KEY } from '../core/keys.js';
 import { t } from '../core/i18n.js';
+import { previewTemplateFor, previewUrlFor } from '../core/seekPreview.js';
 
 const HIDE_MS = 6000;
 const RATES = [0.5, 1, 1.25, 1.5, 1.75, 2, 2.5];
@@ -36,6 +37,10 @@ export class CatchupBar {
     this._previewDir = 0;
     this._repeat = 0;
     this._commitTimer = null;
+    this._tplKey = null;
+    this._tpl = '';
+    this._previewFailed = '';
+    this._shownUrl = '';
   }
 
   get video() {
@@ -49,6 +54,10 @@ export class CatchupBar {
     this._preview = null;
     this._previewDir = 0;
     this._repeat = 0;
+    this._shownUrl = '';
+    this._previewFailed = '';
+    this._tplKey = null;
+    this._tpl = '';
     this.el.classList.remove('hidden');
     this.render();
     this._startTick();
@@ -151,6 +160,7 @@ export class CatchupBar {
     this._preview = null;
     this._previewDir = 0;
     this._repeat = 0;
+    this._shownUrl = '';
     this.player.seekTo(target);
     this._tick();
   }
@@ -192,6 +202,57 @@ export class CatchupBar {
     }
     if (durEl) durEl.textContent = isFinite(dur) && dur > 0 ? fmtSec(dur) : '--:--';
     this._updateSpeedNote();
+    this._updatePreview();
+  }
+
+  // Wall clock of the preview target. Programme times are already shifted for
+  // the channel's EPG offset, so the raw entry is the safer base.
+  _mediaToUtc(sec) {
+    const programme = this.programme;
+    const raw = programme && (programme._epg || programme);
+    if (!raw || !isFinite(raw.start)) return null;
+    return Math.floor(raw.start / 1000) + Math.max(0, Math.floor(sec));
+  }
+
+  _template() {
+    const channel = this.player.current && this.player.current.channel;
+    if (!channel) return '';
+    if (this._tplKey !== channel.key) {
+      this._tplKey = channel.key;
+      this._tpl = previewTemplateFor(channel);
+    }
+    return this._tpl;
+  }
+
+  _updatePreview() {
+    const box = this.el.querySelector('.cb-preview');
+    if (!box) return;
+    if (this._preview == null || this._previewFailed === this._template()) {
+      box.classList.add('hidden');
+      return;
+    }
+    const img = box.querySelector('img');
+    const utc = this._mediaToUtc(this._preview);
+    if (!img || utc == null) {
+      box.classList.add('hidden');
+      return;
+    }
+    const url = previewUrlFor(this._template(), utc);
+    if (!url) {
+      box.classList.add('hidden');
+      return;
+    }
+    box.classList.remove('hidden');
+    if (url === this._shownUrl) return;
+    this._shownUrl = url;
+    img.onerror = () => {
+      // One dead preview URL means the provider is wrong for this channel;
+      // stop asking instead of flashing a broken frame on every key.
+      this._previewFailed = this._template();
+      this._shownUrl = '';
+      box.classList.add('hidden');
+    };
+    img.src = url;
   }
 
   
@@ -245,6 +306,7 @@ export class CatchupBar {
 
     this.el.innerHTML = `
       <div class="cb-title">${t('cb.title', { title: this._esc(title) })}</div>
+      <div class="cb-preview hidden"><img alt=""></div>
       <div class="cb-progress-row${f('progress')}" data-role="progress">
         <span class="cb-cur">${fmtSec(cur)}</span>
         <div class="cb-bar"><i class="cb-fill" style="width:${pct}%"></i><b class="cb-knob" style="left:${pct}%"></b></div>
@@ -252,7 +314,9 @@ export class CatchupBar {
       </div>
       <div class="cb-speed-row${f('speed')}" data-role="speed">${this._speedInner()}</div>
     `;
+    this._shownUrl = '';
     this._updateSpeedNote();
+    this._updatePreview();
   }
 
   _esc(s) {

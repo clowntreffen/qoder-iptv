@@ -4,10 +4,10 @@ import { KEY } from '../core/keys.js';
 import { esc } from '../core/util.js';
 import { t } from '../core/i18n.js';
 import { getChannelOverrides, setChannelOverrides } from '../core/storage.js';
-import { getOverride, patchOverride, clearOverride } from '../core/channelCustomization.js';
+import { getOverride, patchOverride, clearOverride, moveChannel } from '../core/channelCustomization.js';
 
 const OFFSETS = [-120, -90, -60, -30, -15, 0, 15, 30, 60, 90, 120];
-const ROWS = ['name', 'hidden', 'offset', 'reset'];
+const ROWS = ['name', 'hidden', 'group', 'up', 'down', 'offset', 'reset'];
 
 export class ChannelEditor {
   constructor(el) {
@@ -15,6 +15,8 @@ export class ChannelEditor {
     this.ch = null;
     this.focusIdx = 0;
     this.map = {};
+    this.groups = [];
+    this.siblings = [];
     this.entering = false;
     this.draft = '';
     this.onChanged = null; 
@@ -27,9 +29,11 @@ export class ChannelEditor {
     });
   }
 
-  open(ch) {
+  open(ch, opts = {}) {
     this.ch = ch;
     this.map = getChannelOverrides();
+    this.groups = Array.isArray(opts.groups) ? opts.groups.slice() : [];
+    this.siblings = Array.isArray(opts.siblings) ? opts.siblings.slice() : [];
     this.focusIdx = 0;
     this.entering = false;
     this.draft = '';
@@ -56,18 +60,27 @@ export class ChannelEditor {
     return n === 0 ? t('ce.offsetZero') : t('ce.offsetUnit', { n });
   }
 
+  _groupValue() {
+    return this._ov().group || this.ch.group || '';
+  }
+
   render() {
     if (!this.isOpen() || !this.ch) return;
     const ov = this._ov();
     const rows = [
       { key: 'name', label: t('ce.name'), value: ov.name || this.ch.name || '' },
       { key: 'hidden', label: t('ce.hidden'), value: ov.hidden ? t('ce.hiddenOn') : t('ce.hiddenOff') },
+      { key: 'group', label: t('ce.group'), value: this._groupValue() },
+      { key: 'up', label: t('ce.moveUp'), value: '' },
+      { key: 'down', label: t('ce.moveDown'), value: '' },
       { key: 'offset', label: t('ce.epgOffset'), value: this._offsetValue(ov.epgOffsetMinutes || 0) },
       { key: 'reset', label: t('ce.reset'), value: '' }
     ];
     const list = rows.map((r, i) => {
       const cls = 'form-row' + (i === this.focusIdx ? ' focused' : '');
-      const val = r.key === 'reset' ? '' : `<span class="value">${esc(r.value)}</span>`;
+      const val = r.key === 'reset' || r.key === 'up' || r.key === 'down'
+        ? ''
+        : `<span class="value">${esc(r.value)}</span>`;
       return `<div class="${cls}" data-role="row" data-idx="${i}"><span class="label">${esc(r.label)}</span>${val}</div>`;
     }).join('');
 
@@ -115,6 +128,18 @@ export class ChannelEditor {
       this._apply(patchOverride(this.map, this.ch.key, { hidden: !ov.hidden }));
       return;
     }
+    if (row === 'group') {
+      this._stepGroup(1);
+      return;
+    }
+    if (row === 'up') {
+      this._move(-1);
+      return;
+    }
+    if (row === 'down') {
+      this._move(1);
+      return;
+    }
     if (row === 'offset') {
       this._stepOffset(1);
       return;
@@ -122,6 +147,29 @@ export class ChannelEditor {
     if (row === 'reset') {
       this._apply(clearOverride(this.map, this.ch.key));
     }
+  }
+
+  _move(dir) {
+    if (!this.siblings.length) return;
+    const next = moveChannel(this.map, this.siblings, this.ch.key, dir);
+    if (next === this.map) return;
+    this._apply(next);
+  }
+
+  _stepGroup(dir) {
+    const base = this.ch.baseGroup || this.ch.group;
+    const groups = this.groups.length ? this.groups : [base];
+    const cur = this._ov().group || base;
+    let i = groups.indexOf(cur);
+    if (i < 0) i = groups.indexOf(base);
+    if (i < 0) i = 0;
+    const next = groups[(i + dir + groups.length) % groups.length];
+    // A regrouped channel keeps its rank, which would place it at the old
+    // position of the target group; clearing the rank lets it join normally.
+    this._apply(patchOverride(this.map, this.ch.key, {
+      group: next === base ? null : next,
+      order: next === base ? this._ov().order : null
+    }));
   }
 
   _stepOffset(dir) {
@@ -174,9 +222,11 @@ export class ChannelEditor {
         return true;
       case KEY.LEFT:
         if (ROWS[this.focusIdx] === 'offset') this._stepOffset(-1);
+        else if (ROWS[this.focusIdx] === 'group') this._stepGroup(-1);
         return true;
       case KEY.RIGHT:
         if (ROWS[this.focusIdx] === 'offset') this._stepOffset(1);
+        else if (ROWS[this.focusIdx] === 'group') this._stepGroup(1);
         return true;
       case KEY.OK:
         this._commit();

@@ -3,7 +3,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseM3U, renumberChannels } from '../src/core/m3uParser.js';
+import { parseM3U, renumberChannels, applyActiveSource } from '../src/core/m3uParser.js';
 import { buildCatchupUrl } from '../src/core/catchup.js';
 import { epgStore as store } from '../src/core/epgStore.js';
 
@@ -155,6 +155,35 @@ test('shifted EPG view offsets times, exposes originals via _epg and caches by i
   store.mode = 'xmltv';
   store.loaded = true;
   assert.deepEqual(store.getList(channel), []); 
+});
+
+test('seek_preview is parsed per channel, from the header, and per source', () => {
+  const { channels } = parseM3U([
+    '#EXTM3U seek_preview="http://cdn/preview/{utc}.jpg"',
+    '#EXTINF:-1 group-title="G",A',
+    'http://a.m3u8',
+    '#EXTINF:-1 group-title="G" seek-preview="http://cdn/dash/{utc}.jpg",B',
+    'http://b.m3u8'
+  ].join('\n'));
+  assert.equal(channels[0].seekPreview, 'http://cdn/preview/{utc}.jpg');
+  assert.equal(channels[1].seekPreview, 'http://cdn/dash/{utc}.jpg');
+  // Without any attribute the channel has no template.
+  const bare = parseM3U('#EXTINF:-1 group-title="G",C\nhttp://c.m3u8').channels;
+  assert.equal(bare[0].seekPreview, '');
+  // Same channel on two URLs: each source keeps its own template and the
+  // active one wins after a switch.
+  const dup = parseM3U([
+    '#EXTM3U',
+    '#EXTINF:-1 group-title="G" tvg-id="d" seek_preview="http://cdn/x/{utc}.jpg",Same',
+    'http://a.m3u8',
+    '#EXTINF:-1 group-title="G" tvg-id="d",Same',
+    'http://b.m3u8'
+  ].join('\n')).channels;
+  assert.equal(dup.length, 1);
+  assert.equal(dup[0].seekPreview, 'http://cdn/x/{utc}.jpg');
+  dup[0].sourceIdx = 1;
+  applyActiveSource(dup[0]);
+  assert.equal(dup[0].seekPreview, '');
 });
 
 test('catchup URLs use the source timeline (_epg), not the shifted display time', () => {

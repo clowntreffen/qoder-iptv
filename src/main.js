@@ -27,7 +27,8 @@ import {
   setLockedGroups,
   getChannelOverrides
 } from './core/storage.js';
-import { applyChannelOverrides, getOverride } from './core/channelCustomization.js';
+import { applyChannelOverrides, getOverride, orderChannels, sortGroup } from './core/channelCustomization.js';
+import { DEFAULT_THEME, isValidTheme } from './core/themes.js';
 import { activeDeadUrls } from './core/deadUrls.js';
 import { StallWatchdog } from './core/stallWatchdog.js';
 import { takeDueReminders } from './core/reminders.js';
@@ -655,7 +656,9 @@ async function loadSource(src, options = {}) {
     }
     applySourceCatchup(src, channels);
     
-    applyChannelOverrides(channels, getChannelOverrides());
+    const overrides = getChannelOverrides();
+    applyChannelOverrides(channels, overrides);
+    channels = orderChannels(channels, overrides);
     
     app.allChannels = channels;
     app.allGroups = groupChannels(channels).map((g) => ({ name: g.name, count: g.channels.length }));
@@ -752,6 +755,7 @@ function applySettings(s) {
   player.setAspect(s.aspect);
   netSpeed.setEnabled(!!s.showNetSpeed);
   document.documentElement.style.setProperty('--ui-zoom', s.fontScale || 1);
+  document.documentElement.dataset.theme = isValidTheme(s.theme) ? s.theme : DEFAULT_THEME;
   setSleepTimer(s.sleepMinutes);
   scheduleAutoRefresh(!!s.autoRefresh);
   applyLanguage();
@@ -970,11 +974,17 @@ channelMenu.catchupNote = catchupNote;
 
 channelMenu.onEditChannel = (ch) => {
   if (!ch) return;
-  channelEditor.open(ch);
+  const map = getChannelOverrides();
+  const siblings = sortGroup(app.allChannels.filter((c) => c.group === ch.group), map);
+  const groups = [];
+  for (const c of app.allChannels) if (!groups.includes(c.group)) groups.push(c.group);
+  channelEditor.open(ch, { groups, siblings });
 };
 
 function refreshCustomization() {
-  applyChannelOverrides(app.allChannels, getChannelOverrides());
+  const map = getChannelOverrides();
+  applyChannelOverrides(app.allChannels, map);
+  app.allChannels = orderChannels(app.allChannels, map);
   rebuildChannelLists();
   if (app.current && osd.isVisible()) {
     osd.show(app.current, { catchup: player.isCatchup(), programme: player.current && player.current.programme });
@@ -984,6 +994,16 @@ function refreshCustomization() {
 channelEditor.onChanged = () => {
   const key = channelEditor.ch && channelEditor.ch.key;
   refreshCustomization();
+  // Keep the editor's sibling/group context in sync, so a second move or a
+  // regroup acts on the channel's current group instead of the old one.
+  if (channelEditor.ch) {
+    const map = getChannelOverrides();
+    const group = channelEditor.ch.group;
+    channelEditor.siblings = sortGroup(app.allChannels.filter((c) => c.group === group), map);
+    const groups = [];
+    for (const c of app.allChannels) if (!groups.includes(c.group)) groups.push(c.group);
+    channelEditor.groups = groups;
+  }
   const hasOverride = key && getOverride(getChannelOverrides(), key);
   toast(hasOverride ? t('toast.channelUpdated') : t('toast.channelReset'));
   
@@ -1065,6 +1085,7 @@ playerTuning.getWarmStatus = () => player.getWarmBufferStatus();
 settings.onOpenDevice = () => deviceInfo.open();
 
 search.onPlay = playLive;
+search.onPlayCatchup = playCatchup;
 backupDialog.onToast = toast;
 backupDialog.onRestore = (text) => {
   try {

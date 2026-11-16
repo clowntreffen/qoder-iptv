@@ -187,7 +187,7 @@ async function readBody(response, signal, maxBytes, expected) {
 
 
 //
-// opts：
+// opts:
 
 
 

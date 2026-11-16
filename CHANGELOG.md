@@ -2,6 +2,15 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.67
+- Channel editor: added **Move up** / **Move down** and **Group** rows to the `MENU` editor. Reordering keeps a per-channel rank override (one fractional value per move) instead of rewriting the playlist, and moving a channel into another group updates the guide, menu and search immediately. Clearing the customization restores the original group and order.
+- Added 8 color themes (Midnight, Ember, Emerald, Amethyst, Arctic, Ocean, Plum Night, Daylight) under Settings → Theme, applied through `data-theme` palettes in the stylesheet.
+- Text size now has six steps from 80% to 130% (was 90/100/110%), labelled as percentages.
+- Search now also indexes EPG programmes: results mix channels and programmes (yesterday to 14 days ahead, running/upcoming first), and selecting a past programme starts its catch-up when the channel supports it.
+- Catch-up seek bar shows thumbnail previews while scrubbing. Templates come from an explicit `seek_preview` playlist attribute, Flussonic `{utc}-preview.jpg`, or Nimble Streamer `dvr_thumbnail_{utc}.jpg`, in that order; a provider that returns an error is disabled for the session so no broken frame flashes.
+- Removed the last raw non-ASCII UI text: boot diagnostics are English-only, and remaining fullwidth punctuation in comments and the `Save & Use` button is ASCII.
+- LAN upload/setup service is **not** included. The reference implementation needs a bundled webOS Node service (Luna + HTTP on Node 0.12), which this pure web app cannot host and which cannot be verified without a TV; see README for the limitation.
+
 ## 1.1.66
 - Removed the remaining Chinese characters from the repository: source, comments, tests, docs, logs and generator output are now English-only.
 - Translated the last Chinese test names and assertion messages to English.

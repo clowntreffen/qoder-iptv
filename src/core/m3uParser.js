@@ -56,6 +56,7 @@ function parseHeader(headerLine, baseUrl) {
     catchup: attrs['catchup'] || attrs['catchup-type'] || '',
     catchupSource: attrs['catchup-source'] || '',
     catchupDays: days,
+    seekPreview: attrs['seek_preview'] || attrs['seek-preview'] || '',
     tvgShift: Number.isNaN(shift) ? 0 : shift
   };
 }
@@ -103,6 +104,7 @@ export function parseM3U(text, baseUrl = '') {
         catchup: catchupType || (catchupDays > 0 ? 'default' : ''),
         catchupSource: attrs['catchup-source'] || hdr.catchupSource || '',
         catchupDays,
+        seekPreview: attrs['seek_preview'] || attrs['seek-preview'] || hdr.seekPreview || '',
         tvgShift: Number.isNaN(shift) ? hdr.tvgShift : shift,
         chnoRaw: parseInt(attrs['tvg-chno'], 10) || 0,
         headers: {}
@@ -144,6 +146,7 @@ export function applyActiveSource(ch) {
   ch.catchup = s.catchup;
   ch.catchupSource = s.catchupSource;
   ch.catchupDays = s.catchupDays;
+  ch.seekPreview = s.seekPreview;
   ch.headers = s.headers;
   if (s.logo) ch.logo = s.logo;
 }
@@ -161,6 +164,7 @@ function groupByName(raws) {
       catchup: r.catchup,
       catchupSource: r.catchupSource,
       catchupDays: r.catchupDays,
+      seekPreview: r.seekPreview,
       headers: r.headers
     };
     const gkey = r.group + '|' + r.title;

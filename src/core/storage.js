@@ -1,5 +1,6 @@
 
 import { normalizeOverrides } from './channelCustomization.js';
+import { DEFAULT_THEME, isValidTheme } from './themes.js';
 
 const NS = 'iptv:';
 
@@ -85,6 +86,7 @@ const DEFAULT_SETTINGS = {
   autoPlayLast: true,
   showNetSpeed: false, 
   fontScale: 1,
+  theme: DEFAULT_THEME,
   language: 'en', // UI fixed to English; value kept only for saved-settings compatibility
   languageVersion: 3,
   autoRefresh: true,
@@ -102,6 +104,9 @@ export function getSettings() {
     s.languageVersion = DEFAULT_SETTINGS.languageVersion;
   }
   s.language = 'en';
+  if (!isValidTheme(s.theme)) s.theme = DEFAULT_THEME;
+  const scale = Number(s.fontScale);
+  s.fontScale = Number.isFinite(scale) && scale >= 0.8 && scale <= 1.3 ? scale : 1;
   return s;
 }
 export function saveSettings(s) {

@@ -7,8 +7,8 @@ An open-source M3U / IPTV player for LG webOS TVs (webOS 5.3+, tested on webOS 6
 **No channels, playlists, programmes or EPG data are included.** You add your own M3U playlist and XMLTV/DIYP EPG sources. Only use content you are legally entitled to access. The app does not bypass accounts, authentication or DRM.
 
 ## Download this fork
-[com.qoder.iptv_1.1.66_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.66/com.qoder.iptv_1.1.66_all.ipk) — built from this fork, not from upstream.  
-SHA256: `c7737eeb11e46813c14aaaf3421f5c5650d98b2dac3b2eef67fe71a4ad6b9807`
+[com.qoder.iptv_1.1.67_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.67/com.qoder.iptv_1.1.67_all.ipk) — built from this fork, not from upstream.  
+SHA256: `67d8930c9560205781fb25b365a58b6355b69ff4de9d4e68c54560e5b8262f21`
 
 Install with LG webOS dev mode / Glasshouse. No playlists, channels or EPG data are included.
 
@@ -42,7 +42,10 @@ Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
 - Audio-track and subtitle-track selection
 - Parental PIN with optional startup lock, sleep timer, and JSON settings backup/restore
 - Aspect ratio, native / hls.js decoder switch, remembers the last channel
-- Per-channel customization: rename, hide, EPG offset, clear (MENU key in the channel menu)
+- Per-channel customization: rename, hide, move up/down, regroup, EPG offset, clear (MENU key in the channel menu)
+- Eight color themes and six text-size steps (80%–130%)
+- EPG programme search with catch-up playback for past programmes
+- Seek-preview thumbnails in the catch-up bar (explicit `seek_preview`, Flussonic, Nimble Streamer)
 - Interface is fixed to English; no locale-based Chinese UI
 
 ## Remote keys
@@ -61,7 +64,7 @@ Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
 | FF / REW | ±30 s in catch-up |
 | Stop / Back | Return to live from catch-up |
 
-In the channel menu, **Blue** opens channel search, **Yellow/INFO** toggles the favourite, and **MENU** opens per-channel customization (rename / hide / EPG offset). In the full-screen EPG guide, **Yellow/INFO** adds or removes a reminder for the selected programme.
+In the channel menu, **Blue** opens channel search, **Yellow/INFO** toggles the favourite, and **MENU** opens per-channel customization (rename / hide / move / regroup / EPG offset). In the full-screen EPG guide, **Yellow/INFO** adds or removes a reminder for the selected programme.
 
 ## Build
 Requires Node.js 20+ (Node 22 recommended; see `.nvmrc`).
@@ -75,6 +78,9 @@ In the browser, M3U/EPG requests may hit CORS limits; the dev server provides a 
 
 ## Install
 - Download the IPK from [Releases](https://github.com/clowntreffen/qoder-iptv/releases) and install it with [Glasshouse](https://github.com/rorygallagher2024/glasshouse) (upload the IPK), or with `ares-install --device tv <file>.ipk`.
+
+## Known limitations
+- **No LAN upload/setup service.** The upstream reference implementation ships a bundled webOS Node service (Node 0.12, Luna + HTTP) to push playlists from a computer over the local network. This fork is a pure web app and cannot bundle that service; it also could not be validated without a physical TV. Add playlists through the on-TV source manager instead.
 
 ## License
 [MIT](LICENSE). Bundled third-party software: hls.js (Apache License 2.0); see [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).

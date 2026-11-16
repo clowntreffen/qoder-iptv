@@ -5,6 +5,7 @@ import { fetchXMLTV } from './xmltvParser.js';
 import { fetchDiypDay, diypDateStr } from './diyp.js';
 import { getEpgCache, setEpgCache } from './storage.js';
 import { redactUrl } from './util.js';
+import { programmeEntries } from './epgSearch.js';
 
 const DAY_MS = 24 * 3600 * 1000;
 const CACHE_TTL = 6 * 3600 * 1000; 
@@ -27,7 +28,7 @@ export function normalizeEpgName(name) {
   if (!name) return '';
   let s = String(name);
   try { s = s.normalize('NFKC'); } catch (e) {}
-  s = s.toLowerCase().replace(/[\s\-_·・()（）\[\]【】]/g, '');
+  s = s.toLowerCase().replace(/[\s\-_\u00b7\u30fb()\uff08\uff09\[\]\u3010\u3011]/g, '');
   
   s = s.replace(/(\u8d85\u9ad8\u6e05|\u9ad8\u6e05|\u6807\u6e05|\u84dd\u5149|uhd|fhd|hd|sd|4k|8k|h265|hevc|hdr)/g, '');
   const cen = /^\u4e2d\u592e(?:\u7535\u89c6\u53f0)?(?:cctv)?(\d{1,2})(?:\+)?(?:\u9891\u9053)?$/.exec(s);
@@ -80,6 +81,8 @@ class EpgStore {
     this._shifted = new Map();
     this._nameIndex = null; 
     this._forceRefresh = false;
+    this._entries = null;
+    this._entriesVersion = -1;
     this.onUpdate = null; 
     this._updTimer = null;
   }
@@ -96,6 +99,8 @@ class EpgStore {
     this.pending.clear();
     this._shifted.clear();
     this._nameIndex = null;
+    this._entries = null;
+    this._entriesVersion = -1;
     this.loaded = false;
     this.version++;
     
@@ -298,6 +303,20 @@ class EpgStore {
   
   
   
+  // Public key lookup so search can map a programme back to its channels.
+  epgKeyOf(channel) {
+    return this._key(channel);
+  }
+
+  // Flat programme list for the search index, rebuilt only when the store
+  // changed. Cached because a full EPG can hold tens of thousands of items.
+  programmeEntries() {
+    if (this._entries && this._entriesVersion === this.version) return this._entries;
+    this._entries = programmeEntries(this.programmes);
+    this._entriesVersion = this.version;
+    return this._entries;
+  }
+
   getList(channel) {
     const key = this._key(channel);
     if (!key) return [];

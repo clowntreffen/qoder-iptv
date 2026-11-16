@@ -8,7 +8,7 @@
 </head>
 <body>
   <div id="app">
-    <!-- \u64ad\u653e\u5c42：\u5168\u5c4f\u89c6\u9891 -->
+    <!-- player layer: fullscreen video -->
     <div id="player-layer">
       <video id="video" playsinline preload="auto"></video>
     </div>
@@ -16,10 +16,10 @@
     <!-- \u6362\u53f0 OSD \u4fe1\u606f\u6761 -->
     <div id="osd" class="osd hidden"></div>
 
-    <!-- \u8de8\u5206\u7ec4\u6362\u53f0\u63d0\u793a（\u663e\u793a\u5728 OSD \u4e0a\u65b9） -->
+    <!-- cross-group zap notice, shown above the OSD -->
     <div id="group-hint" class="group-hint hidden"></div>
 
-    <!-- \u56de\u770b\u63a7\u5236\u6761：\u8fdb\u5ea6\u6761 + \u500d\u901f -->
+    <!-- catch-up bar: progress bar + speed -->
     <div id="catchup-bar" class="catchup-bar hidden"></div>
 
     <!-- \u56de\u770b\u975e 1× \u65f6\u7684\u5e38\u9a7b\u500d\u901f\u89d2\u6807 -->
@@ -28,7 +28,7 @@
     <!-- \u6570\u5b57\u6362\u53f0\u7f13\u51b2 -->
     <div id="channel-input" class="channel-input hidden"></div>
 
-    <!-- \u53f3\u4e0b\u89d2\u7f51\u901f（\u8bbe\u7f6e\u91cc\u5f00\u542f\u540e\u5e38\u9a7b） -->
+    <!-- bottom-right net speed, always on after enabling it in settings -->
     <div id="net-speed" class="net-speed hidden"></div>
 
     <!-- \u9876\u90e8\u72b6\u6001\u680f -->
@@ -37,7 +37,7 @@
     <!-- \u4e09\u680f\u547c\u51fa\u83dc\u5355 -->
     <div id="channel-menu" class="overlay hidden"></div>
 
-    <!-- \u9891\u9053\u81ea\u5b9a\u4e49\u7f16\u8f91（\u6539\u540d / \u9690\u85cf / EPG \u504f\u79fb） -->
+    <!-- per-channel editor: rename / hide / group / order / EPG offset -->
     <div id="channel-editor" class="overlay hidden"></div>
 
     <!-- \u5168\u5c4f EPG \u8282\u76ee\u6307\u5357 -->
@@ -52,7 +52,7 @@
     <!-- \u5206\u7ec4\u663e\u793a\u7ba1\u7406 -->
     <div id="group-manager" class="overlay hidden"></div>
 
-    <!-- \u64ad\u653e\u5668\u53c2\u6570（\u771f\u673a\u8c03\u4f18） -->
+    <!-- player tuning (on-device) -->
     <div id="player-tuning" class="overlay hidden"></div>
 
     <!-- \u8bbe\u5907\u4fe1\u606f -->
@@ -80,7 +80,7 @@
     <div id="loading" class="loading hidden"><div class="spinner"></div></div>
   </div>
 
-  <!-- \u542f\u52a8\u8bca\u65ad\u5c42：\u5185\u8054\u6837\u5f0f + ES5 \u666e\u901a\u811a\u672c，\u4e3b\u7a0b\u5e8f（module）\u52a0\u8f7d\u5931\u8d25\u65f6\u4e5f\u80fd\u663e\u793a，\u907f\u514d\u7eaf\u9ed1\u5c4f -->
+  <!-- boot diagnostics: inline styles + plain ES5 script, so it still shows when the module bundle fails and avoids a pure black screen -->
   <div id="boot-diag" style="position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483647;pointer-events:none;color:#fff;font-family:sans-serif;">
     <div id="boot-diag-box" style="position:absolute;left:4%;top:6%;max-width:88%;background:rgba(0,0,0,0.8);border-radius:8px;white-space:pre-wrap;word-break:break-all;line-height:1.5;"></div>
   </div>
@@ -116,17 +116,17 @@
         errors++;
         var t = e.target;
         if (t && t !== window && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
-          add('Failed to load / \u52a0\u8f7d\u5931\u8d25: ' + (t.src || t.href));
+          add('Failed to load: ' + (t.src || t.href));
         } else {
           var where = e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno + ':' + e.colno : '';
-          add('Error / \u9519\u8bef: ' + (e.message || e.error) + where);
+          add('Error: ' + (e.message || e.error) + where);
         }
       }, true);
       window.addEventListener('unhandledrejection', function (e) {
         if (started) return;
         errors++;
         var r = e.reason;
-        add('Unhandled rejection / \u672a\u5904\u7406\u5f02\u5e38: ' + (r && (r.stack || r.message) || r));
+        add('Unhandled rejection: ' + (r && (r.stack || r.message) || r));
       });
       window.__bootDone = function () {
         started = true;
@@ -135,9 +135,8 @@
       };
       setTimeout(function () {
         if (started) return;
-        add('Main script did not start within 10s / \u4e3b\u7a0b\u5e8f 10 \u79d2\u5185\u672a\u542f\u52a8');
+        add('Main script did not start within 10s');
         add('Please take a photo of this screen and send it to the developer.');
-        add('\u8bf7\u62cd\u4e0b\u6b64\u5c4f\u5e55\u53d1\u7ed9\u5f00\u53d1\u8005。');
       }, 10000);
     })();
   </script>

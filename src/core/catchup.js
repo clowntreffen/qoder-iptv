@@ -179,7 +179,7 @@ export const CATCHUP_PRESETS = [
   { catchup: 'append', catchupSource: '?utc={utc}&lutc={lutc}' },
   { catchup: 'append', catchupSource: '?starttime={utc:YmdHMS}&endtime={utcend:YmdHMS}' },
   { catchup: 'append', catchupSource: '?begin={utc}&end={utcend}' },
-  // Flussonic：.../index.m3u8 -> .../index-{start}-{duration}.m3u8
+  // Flussonic: .../index.m3u8 -> .../index-{start}-{duration}.m3u8
   { catchup: 'flussonic', catchupSource: '' }
 ];
 

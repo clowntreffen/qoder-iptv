@@ -325,7 +325,7 @@ test('text logo derives a short code from the channel name', () => {
   assert.equal(logoText('CCTV-1 \u7efc\u5408'), 'CCTV1');
   assert.equal(logoText('CCTV-5+ \u4f53\u80b2\u8d5b\u4e8b'), 'CCTV5+');
   assert.equal(logoText('\u6e56\u5357\u536b\u89c6'), '\u6e56\u5357');
-  assert.equal(logoText('【4K】\u8d85\u9ad8\u6e05'), '4K');
+  assert.equal(logoText('\u30104K\u3011\u8d85\u9ad8\u6e05'), '4K');
   assert.equal(logoText('BBC One'), 'BBC');
   assert.equal(logoText('  '), '?');
 });

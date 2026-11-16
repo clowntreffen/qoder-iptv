@@ -206,7 +206,7 @@ export function parseAudioInit(input) {
       }
     }
     if (entry.type !== 'mp4a' && entry.type !== '.mp3') return info; 
-    // AudioSampleEntry：reserved 6 + dref 2 + version 2 + revision 2 + vendor 4 + channels 2 + bits 2 + ... + rate 4
+    // AudioSampleEntry: reserved 6 + dref 2 + version 2 + revision 2 + vendor 4 + channels 2 + bits 2 + ... + rate 4
     const base = entry.data;
     const ver = (u8[base + 8] << 8) | u8[base + 9];
     info.channels = (u8[base + 16] << 8) | u8[base + 17];
