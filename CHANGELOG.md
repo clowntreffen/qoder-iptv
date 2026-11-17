@@ -2,6 +2,9 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.69
+- Channel menu now opens in the current channel's own group. Previously the menu preferred the virtual **Favourites** / **Recently Watched** groups, so pressing **OK** (or **LEFT** with a single source) appeared to jump to *Recently Watched* instead of staying in the category you were in.
+
 ## 1.1.68
 - Source test no longer marks a channel dead when a request merely times out: a timeout is reported as *unknown* and the URL stays in the list, so cold-start proxies and redirect gates stop disappearing from the channel list. Only hard failures (HTTP error, unparsable manifest, dead segment) become dead URLs.
 - Reverse-proxy stream URLs are now recognised as HLS by their `url=`/`u=` target ending in `.m3u8`, not only by the path. The check is provider-agnostic and covers playback, native fallback and warm prefetch.

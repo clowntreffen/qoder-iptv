@@ -140,10 +140,16 @@ export class ChannelMenu {
     this._buildGroups();
 
     
-    let g = 0, c = 0;
-    for (let gi = 0; gi < this.groups.length; gi++) {
-      const idx = this.groups[gi].channels.findIndex((ch) => ch.key === currentKey);
-      if (idx >= 0) { g = gi; c = idx; break; }
+    let g = 0, c = 0, found = false;
+    for (let pass = 0; pass < 2 && !found; pass++) {
+      for (let gi = 0; gi < this.groups.length; gi++) {
+        const grp = this.groups[gi];
+        const virtual = !!(grp.fav || grp.recent);
+        
+        if ((pass === 0) === virtual) continue;
+        const idx = grp.channels.findIndex((ch) => ch.key === currentKey);
+        if (idx >= 0) { g = gi; c = idx; found = true; break; }
+      }
     }
     this.groupIdx = g;
     this.chanIdx = c;

@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ChannelMenu } from '../src/ui/ChannelMenu.js';
 import { logoHtml, logoText, markLogoFailed } from '../src/core/util.js';
-import { saveFavorites } from '../src/core/storage.js';
+import { saveFavorites, recordRecent, clearRecents } from '../src/core/storage.js';
 
 const CHAN_ROW_H = 100; 
 const ROWS = 5000;
@@ -109,6 +109,20 @@ function makeChannels() {
     }
   }
   return channels;
+}
+
+function useStorage() {
+  const data = Object.create(null);
+  Object.defineProperties(data, {
+    getItem: { value: (k) => (k in data ? data[k] : null) },
+    setItem: { value: (k, v) => { data[k] = String(v); } },
+    removeItem: { value: (k) => { delete data[k]; } },
+    clear: { value: () => { for (const k of Object.keys(data)) delete data[k]; } },
+    key: { value: (i) => Object.keys(data)[i] ?? null },
+    length: { get: () => Object.keys(data).length }
+  });
+  globalThis.localStorage = data;
+  return data;
 }
 
 function setup() {
@@ -226,6 +240,33 @@ test('favorites group always exists and INFO toggles the focused channel', () =>
   assert.equal(menu.chanIdx, 0);
   menu.close();
   saveFavorites([]);
+});
+
+test('opening the menu stays in the real channel group, not Recently Watched or Favourites', () => {
+  useStorage();
+  saveFavorites([]);
+  clearRecents();
+  const { menu, channels } = setup();
+  const target = channels[ROWS / 2]; // first channel of group B
+  
+  recordRecent(target.key);
+  menu.open(channels, target.key);
+  assert.equal(menu.groups[menu.groupIdx].name, 'B');
+  assert.equal(menu.groupIdx, 3); // Favourites, Recently Watched, A, B
+  
+  recordRecent(channels[0].key);
+  menu.open(channels, target.key);
+  assert.equal(menu.groupIdx, 3, 'recent order must not move the current channel');
+  
+  saveFavorites([target.key]);
+  menu.open(channels, target.key);
+  assert.equal(menu.groupIdx, 3, 'a favourite still opens in its own group');
+  
+  menu.open(channels, 'ch:missing|0');
+  assert.equal(menu.groupIdx, 0);
+  menu.close();
+  saveFavorites([]);
+  clearRecents();
 });
 
 test('playing from the favorites group passes fav zap context; normal groups pass all', () => {
