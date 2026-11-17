@@ -124,6 +124,10 @@ async function probeUrl(url, perReqMs = 1200, totalMs = 2500, signal) {
     checkAbort(scope.controller.signal);
     return result;
   } catch (e) {
+    // A timeout is not proof that the stream is dead: reverse proxies and
+    // redirect gates can be slow on a cold start. Leave the URL in the list
+    // and let the player try; only hard failures become dead URLs.
+    if (e && e.name === 'AbortError') return null;
     return signal && signal.aborted ? null : false;
   } finally {
     scope.dispose();

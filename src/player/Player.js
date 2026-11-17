@@ -27,8 +27,15 @@ import { makeVodPlaylistLoader } from './vodPlaylist.js';
 import { SpeedEngine, detectSpeed, primeAudio } from './speed/engine.js';
 
 
+// Direct .m3u8 URLs and reverse-proxy URLs whose `url=`/`u=` target ends in
+// .m3u8 both need hls.js; the path alone is not enough for proxied playlists.
+export function isHlsUrl(raw) {
+  return /\.m3u8(\?|$)/i.test(raw) ||
+    /[?&](?:url|u)=[^&]*\.m3u8(?:[?&#]|$)/i.test(raw);
+}
+
 const CFG = {
-  maxErrorRetries: 3, 
+  maxErrorRetries: 3,
   
   
   
@@ -45,7 +52,7 @@ const CFG = {
   prefetchCacheMax: 48, 
   startup: {
     pollMs: 200,
-    timeoutMs: 10000,
+    timeoutMs: 15000,
     stallMs: 1000,
     minBuffer: 2,
     boundaryTolerance: 0.05,
@@ -87,7 +94,7 @@ const CFG = {
     startOnSegmentBoundary: true,
     maxBufferLength: 30,
     backBufferLength: 30,
-    manifestLoadingTimeOut: 8000, 
+    manifestLoadingTimeOut: 16000,
     manifestLoadingMaxRetry: 2,
     manifestLoadingRetryDelay: 500,
     fragLoadingTimeOut: 15000,
@@ -726,7 +733,7 @@ export class Player {
     this._triedNativeFallback = false; 
     this._netRetries = 0; 
     this._mediaRetries = 0;    this._loadedBytes = 0; 
-    const isHls = /\.m3u8(\?|$)/i.test(rawUrl);
+    const isHls = isHlsUrl(rawUrl);
     
     
     const nativeBlocked = !this._nativeAllowed(rawUrl);
@@ -1178,7 +1185,7 @@ export class Player {
 
   _nativeStartupFailed() {
     if (this.mode !== 'live' || this._activePath !== 'native' || this._decoder !== 'auto' ||
-        this._playedOnce || this._triedNativeFallback || !/\.m3u8(\?|$)/i.test(this._rawUrl || '') ||
+        this._playedOnce || this._triedNativeFallback || !isHlsUrl(this._rawUrl || '') ||
         !Hls.isSupported()) return false;
     
     this._triedNativeFallback = true;
@@ -1300,7 +1307,7 @@ export class Player {
     }
     const generation = this._warmGeneration;
     if (!this.current || this.mode !== 'live' || rawUrl === this.current.url) return Promise.resolve();
-    if (!rawUrl || !/\.m3u8(\?|$)/i.test(rawUrl)) {
+    if (!rawUrl || !isHlsUrl(rawUrl)) {
       
       this._warmNote('n');
       try { console.log('[warm] skip (not m3u8) ' + redactUrl(rawUrl)); } catch (e) {}
@@ -1529,7 +1536,7 @@ export class Player {
       
       
       
-      if (/\.m3u8(\?|$)/i.test(first)) {
+      if (isHlsUrl(first)) {
         if (depth >= 1 || first === manifestUrl) return;
         boundedSet(this._prefetched, first, Date.now(), CFG.prefetchCacheMax);
         return this._fetchWarmManifest(first, chan, generation, depth + 1);

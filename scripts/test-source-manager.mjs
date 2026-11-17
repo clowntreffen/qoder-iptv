@@ -512,7 +512,7 @@ test('malformed playlists, empty variants and HTTP failures stop and release eac
   }
 });
 
-test('probe request timeout includes headers and body; intentional abort is not a dead URL', async (t) => {
+test('probe request timeout includes headers and body; timeouts and intentional aborts are not dead URLs', async (t) => {
   const f = fixture(t);
   for (const stage of ['headers', 'body']) {
     const body = openResponse({ type: 'text/plain', text: '#EXTM3U\n' });
@@ -522,7 +522,7 @@ test('probe request timeout includes headers and body; intentional abort is not 
     await f.time.advance(1199);
     assert.equal(f.calls.at(-1).signal.aborted, false);
     await f.time.advance(1);
-    assert.equal(await task, false);
+    assert.equal(await task, null);
     assert.equal(f.calls.at(-1).signal.aborted, true);
     if (stage === 'body') {
       assert.equal(body.cancels, 1);
@@ -558,7 +558,7 @@ test('total probe budget caps a chain even when each request is under its own ti
   await f.time.advance(499);
   assert.equal(pending[2].signal.aborted, false);
   await f.time.advance(1);
-  assert.equal(await task, false);
+  assert.equal(await task, null);
   assert.equal(pending[2].signal.aborted, true);
 });
 
@@ -992,14 +992,14 @@ test('relative channel URLs use final M3U URL, unwrap only dev proxy u, and fall
   }
 });
 
-test('probe timeout records a dead URL, unlike intentional task cancellation', async (t) => {
+test('probe timeout leaves the URL alive, unlike a hard failure', async (t) => {
   const f = fixture(t);
   serveOne(f, (request) => pendingRequest(request).promise);
   const task = f.manager._testSource(0);
   await flush();
   await f.time.advance(3000);
   await task;
-  assert.deepEqual(f.stored()[0].deadUrls, [channelUrl(0)]);
+  assert.deepEqual(f.stored()[0].deadUrls, []);
   assert.equal(f.saves.length, 1);
   assert.equal(f.reloads.length, 1);
   assert.match(f.manager.testMsg, /^sm.testDone/);

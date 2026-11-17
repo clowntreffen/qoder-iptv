@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import Hls from 'hls.js';
-import { Player } from '../src/player/Player.js';
+import { Player, isHlsUrl } from '../src/player/Player.js';
 import { NetSpeed } from '../src/ui/NetSpeed.js';
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
@@ -12,6 +12,13 @@ const ranges = (items) => ({ length: items.length, start: (i) => items[i][0], en
 test('webOS graphics use a 4K canvas for native sharpness on UHD panels', async () => {
   const info = JSON.parse(await readFile(new URL('../appinfo.json', import.meta.url), 'utf8'));
   assert.equal(info.resolution, '3840x2160');
+});
+
+test('reverse-proxy URLs whose target ends in .m3u8 use hls.js', () => {
+  assert.equal(isHlsUrl('http://proxy.test/p3?url=http%3A%2F%2Fhost.test%2Findex.m3u8&via=it'), true);
+  assert.equal(isHlsUrl('http://proxy.test/p3.m3u8?url=http%3A%2F%2Fhost.test%2Findex.m3u8&via=it'), true);
+  assert.equal(isHlsUrl('http://proxy.test/p3?url=http%3A%2F%2Fhost.test%2Findex.m3u'), false);
+  assert.equal(isHlsUrl('http://host.test/live.ts'), false);
 });
 
 function fixture(t) {
@@ -289,7 +296,7 @@ test('timeout watch leaves no timers and bypasses no watchdog', (t) => {
   const { player, video } = fixture(t);
   video.seeking = true;
   player._watchStartup();
-  tick(10000);
+  tick(15000);
   assert.equal(player.startupStatus().reason, 'timeout');
   assert.equal(player._startupTimer, null);
   assert.equal(video.currentTime, 10);
@@ -298,7 +305,7 @@ test('timeout watch leaves no timers and bypasses no watchdog', (t) => {
 test('late first fragment past deadline must not start idle timer', (t) => {
   const tick = clock(t);
   const { player } = fixture(t);
-  tick(11000);
+  tick(15000);
   player._watchStartup();
   assert.equal(player._startupTimer, null);
 });
@@ -537,7 +544,7 @@ test('HLS fallback resets frame/playing/progress, cancels old callback, own nati
   assert.deepEqual(states, ['nativefallback']);
   tick(2000);
   assert.notEqual(player._startupTimer, null);
-  tick(8000);
+  tick(13000);
   assert.equal(player._startupTimer, null);
   assert.equal(player._fallbackToNative(), false);
 });
@@ -649,7 +656,7 @@ test('native fallback restarts watchdog, keeps total elapsed, clears old waiting
   let id = 10;
   const context = vm.createContext({
     player: {}, zapStarting: false, zapStartAt: 1000, startWatchdog: null, stallTimer: 5,
-    START_TIMEOUT_MS: 12000, onStartTimeout() {}, netSpeed: { reset() {} },
+    START_TIMEOUT_MS: 15000, onStartTimeout() {}, netSpeed: { reset() {} },
     loading: value => shown.push(value),
     setTimeout: (fn, ms) => { timers.set(++id, { fn, ms }); return id; },
     clearTimeout: timer => { cleared.push(timer); timers.delete(timer); }
@@ -659,7 +666,7 @@ test('native fallback restarts watchdog, keeps total elapsed, clears old waiting
   assert.equal(context.zapStarting, true);
   assert.equal(context.zapStartAt, 1000);
   assert.ok(cleared.includes(5));
-  assert.equal(timers.get(context.startWatchdog).ms, 12000);
+  assert.equal(timers.get(context.startWatchdog).ms, 15000);
   assert.deepEqual(shown, [true]);
 });
 
@@ -738,14 +745,14 @@ for (const readyState of [0, 4]) {
     video.readyState = readyState;
     video.emit('playing');
     assert.equal(player._playedOnce, false, 'frozen first frame cannot fake playback success');
-    tick(9800);
+    tick(14800);
     assert.equal(player.activePath(), 'native');
     tick(200);
     assert.equal(player.activePath(), 'hls');
     assert.ok(player.hls);
     assert.equal(player._triedNativeFallback, true);
     assert.equal(player._nativeUrls.has(player._rawUrl), false);
-    assert.equal(player._phase.t0, 110000, 'new pipeline needs its own startup deadline');
+    assert.equal(player._phase.t0, 115000, 'new pipeline needs its own startup deadline');
     assert.equal(player._startupTimer, null);
     assert.equal(video.error, null);
     assert.equal(errors.length, 0);
@@ -785,14 +792,14 @@ for (const [name, configure] of [
     const errors = [];
     player.onError = message => errors.push(message);
     player._watchStartup();
-    tick(10000);
+    tick(15000);
     assert.equal(player.activePath(), 'native');
     assert.equal(player.hls, null);
     assert.equal(player.startupStatus().reason, 'timeout');
     assert.equal(player._startupTimer, null);
     assert.equal(video.paused, true);
     assert.equal(errors.length, 1);
-    tick(10000);
+    tick(15000);
     assert.equal(errors.length, 1);
   });
 }
@@ -804,7 +811,7 @@ test('native reconnect without data times out to caller', (t) => {
   player._startNative(player._rawUrl, 'reconnect');
   const errors = [];
   player.onError = message => errors.push(message);
-  tick(10000);
+  tick(15000);
   assert.equal(errors.length, 1);
   assert.equal(player.startupStatus().reason, 'timeout');
   assert.equal(video.paused, true);
@@ -817,7 +824,7 @@ test('catch-up native timeout does not switch HLS or reset position', (t) => {
   const errors = [];
   player.onError = message => errors.push(message);
   player._watchStartup();
-  tick(10000);
+  tick(15000);
   assert.equal(player.activePath(), 'native');
   assert.equal(video.currentTime, 10);
   assert.equal(errors.length, 0);
@@ -851,7 +858,7 @@ test('fatal hls.js codec error after reverse fallback must still report', (t) =>
   player.onError = message => errors.push(message);
   video.canPlayType = () => 'probably';
   player._watchStartup();
-  tick(10000);
+  tick(15000);
   assert.equal(player.activePath(), 'hls');
   errorHandler(null, { fatal: true, type: Hls.ErrorTypes.MEDIA_ERROR, details: 'bufferAddCodecError' });
   assert.equal(errors.length, 1);
@@ -867,7 +874,7 @@ test('after native failure tells caller to switch, old watcher must not affect n
   player._decoder = 'native';
   player.onError = () => player.playLive({ name: 'Backup', url: 'https://example.test/backup.m3u8' }, 'native');
   player._watchStartup();
-  tick(10000);
+  tick(15000);
   assert.equal(player.current.channel.name, 'Backup');
   assert.equal(player._startup.done, false);
   video.paused = false;
@@ -886,7 +893,7 @@ test('reverse fallback gives HLS watchdog full deadline and keeps total elapsed'
   let deadline;
   const context = vm.createContext({
     player: {}, zapStarting: true, zapStartAt: 1000, startWatchdog: 5, stallTimer: 6,
-    START_TIMEOUT_MS: 12000, onStartTimeout() {}, netSpeed: { reset() {} },
+    START_TIMEOUT_MS: 15000, onStartTimeout() {}, netSpeed: { reset() {} },
     loading() {}, clearTimeout() {},
     setTimeout: (fn, ms) => { deadline = ms; return 7; }
   });
@@ -895,7 +902,7 @@ test('reverse fallback gives HLS watchdog full deadline and keeps total elapsed'
   assert.equal(context.zapStartAt, 1000);
   assert.equal(context.zapStarting, true);
   assert.equal(context.startWatchdog, 7);
-  assert.equal(deadline, 12000);
+  assert.equal(deadline, 15000);
 });
 
 test('manual pause after first frame is not failure; resume keeps remaining wait', (t) => {
@@ -911,7 +918,7 @@ test('manual pause after first frame is not failure; resume keeps remaining wait
   assert.equal(player._startup.done, false);
   assert.equal(errors.length, 0);
   video.paused = false;
-  tick(7800);
+  tick(12800);
   assert.equal(errors.length, 0);
   tick(200);
   assert.equal(errors.length, 1);
@@ -926,7 +933,7 @@ test('late error/waiting after native timeout must not re-notify or respawn spin
   player.onError = message => errors.push(message);
   player.onStateChange = state => states.push(state);
   player._watchStartup();
-  tick(10000);
+  tick(15000);
   video.error = { code: 4 };
   video.emit('error');
   video.emit('waiting');
@@ -943,7 +950,7 @@ test('native no-data play failure stays paused and still times out', (t) => {
   const errors = [];
   player.onError = message => errors.push(message);
   player._watchStartup();
-  tick(10000);
+  tick(15000);
   assert.equal(errors.length, 1);
 });
 
@@ -954,7 +961,7 @@ test('watchdog must not flag paused ready media as bad; no data still errors', a
   let attempts = 0;
   const context = vm.createContext({
     player: { video: { paused: true, readyState: 4, error: null } },
-    startWatchdog: null, START_TIMEOUT_MS: 12000, zapStarting: true, stallTimer: null,
+    startWatchdog: null, START_TIMEOUT_MS: 15000, zapStarting: true, stallTimer: null,
     setTimeout: () => 7, clearTimeout() {}, loading() {}, toast() {}, t: key => key,
     tryFailover() { attempts++; return false; }
   });

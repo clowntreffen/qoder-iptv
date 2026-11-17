@@ -2,6 +2,11 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.68
+- Source test no longer marks a channel dead when a request merely times out: a timeout is reported as *unknown* and the URL stays in the list, so cold-start proxies and redirect gates stop disappearing from the channel list. Only hard failures (HTTP error, unparsable manifest, dead segment) become dead URLs.
+- Reverse-proxy stream URLs are now recognised as HLS by their `url=`/`u=` target ending in `.m3u8`, not only by the path. The check is provider-agnostic and covers playback, native fallback and warm prefetch.
+- Longer startup budgets for slow gateways: player startup watchdog 10 s → 15 s, hls.js manifest loading timeout 8 s → 16 s, app start watchdog 12 s → 15 s.
+
 ## 1.1.67
 - Channel editor: added **Move up** / **Move down** and **Group** rows to the `MENU` editor. Reordering keeps a per-channel rank override (one fractional value per move) instead of rewriting the playlist, and moving a channel into another group updates the guide, menu and search immediately. Clearing the customization restores the original group and order.
 - Added 8 color themes (Midnight, Ember, Emerald, Amethyst, Arctic, Ocean, Plum Night, Daylight) under Settings → Theme, applied through `data-theme` palettes in the stylesheet.

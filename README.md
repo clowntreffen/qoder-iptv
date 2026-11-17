@@ -7,8 +7,8 @@ An open-source M3U / IPTV player for LG webOS TVs (webOS 5.3+, tested on webOS 6
 **No channels, playlists, programmes or EPG data are included.** You add your own M3U playlist and XMLTV/DIYP EPG sources. Only use content you are legally entitled to access. The app does not bypass accounts, authentication or DRM.
 
 ## Download this fork
-[com.qoder.iptv_1.1.67_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.67/com.qoder.iptv_1.1.67_all.ipk) — built from this fork, not from upstream.  
-SHA256: `67d8930c9560205781fb25b365a58b6355b69ff4de9d4e68c54560e5b8262f21`
+[com.qoder.iptv_1.1.68_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.68/com.qoder.iptv_1.1.68_all.ipk) — built from this fork, not from upstream.  
+SHA256: `8318b2621e7469fdb380610a95239eccd42761b63b387e950c9388956b4d3db4`
 
 Install with LG webOS dev mode / Glasshouse. No playlists, channels or EPG data are included.
 
@@ -17,7 +17,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full fork history.
 - Rebranded as **Qoder IPTV** with a new textless purple/blue TV-play icon and English app description.
 - Favourites are always visible as the first group in the channel menu. Add/remove with **Yellow** while watching or in the channel list, **INFO** on remotes that have it, or by tapping the ☆/★ next to a channel.
 - Channel keys are aligned: **CH+ / D-pad UP** = next channel, **CH- / D-pad DOWN** = previous channel.
-- Source liveness check waits longer before marking a source dead: **3 s per request / 6 s total** (was 1.2 s / 2.5 s), so slow IPTV gateways are not falsely marked dead. Source-test results now expire after 12 hours.
+- Source liveness check waits longer before marking a source dead: **3 s per request / 6 s total** (was 1.2 s / 2.5 s). A request that only times out is treated as *unknown* and stays in the list, so slow proxies and redirect gates are not falsely marked dead; only hard failures become dead URLs. Source-test results now expire after 12 hours.
 - Added a runtime stall watchdog, optional M3U/EPG auto-refresh with offline cache fallback, channel search and recently watched channels, EPG details/reminders, audio/subtitle track selection, parental PIN, sleep timer and JSON backup/restore.
 - Packaging targets **Node.js 20+** (`.nvmrc` = 22) and the app declares `requiredACG: []`.
 - Remote-key documentation updated for the LG C5/MR25GA Magic Remote.
