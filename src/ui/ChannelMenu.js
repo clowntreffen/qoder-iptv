@@ -134,25 +134,31 @@ export class ChannelMenu {
     this.groups = groups;
   }
 
+  _groupIndexOf(key) {
+    if (!key) return -1;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < this.groups.length; i++) {
+        const grp = this.groups[i];
+        const virtual = !!(grp.fav || grp.recent);
+        
+        if ((pass === 0) === virtual) continue;
+        if (grp.channels.some((ch) => ch.key === key)) return i;
+      }
+    }
+    return -1;
+  }
+
   open(channels, currentKey) {
     this.channels = channels;
     this.currentKey = currentKey;
     this._buildGroups();
 
     
-    let g = 0, c = 0, found = false;
-    for (let pass = 0; pass < 2 && !found; pass++) {
-      for (let gi = 0; gi < this.groups.length; gi++) {
-        const grp = this.groups[gi];
-        const virtual = !!(grp.fav || grp.recent);
-        
-        if ((pass === 0) === virtual) continue;
-        const idx = grp.channels.findIndex((ch) => ch.key === currentKey);
-        if (idx >= 0) { g = gi; c = idx; found = true; break; }
-      }
-    }
-    this.groupIdx = g;
-    this.chanIdx = c;
+    const gi = currentKey ? this._groupIndexOf(currentKey) : -1;
+    this.groupIdx = gi >= 0 ? gi : 0;
+    this.chanIdx = gi >= 0
+      ? this.groups[gi].channels.findIndex((ch) => ch.key === currentKey)
+      : 0;
     this.dayPos = TODAY_POS;
     this.col = COL_CHAN;
     this.settingsFocused = false;
@@ -660,7 +666,7 @@ export class ChannelMenu {
     this._buildGroups();
     if (wasFav) {
       
-      const gi = this.groups.findIndex((g) => g.channels.some((c) => c.key === ch.key));
+      const gi = this._groupIndexOf(ch.key);
       if (gi >= 0) {
         this.groupIdx = gi;
         this.chanIdx = this.groups[gi].channels.findIndex((c) => c.key === ch.key);

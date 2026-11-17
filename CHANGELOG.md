@@ -2,6 +2,9 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.70
+- Same category fix for the favourites toggle: removing a favourite now keeps the channel in its real group instead of dropping it into **Recently Watched**.
+
 ## 1.1.69
 - Channel menu now opens in the current channel's own group. Previously the menu preferred the virtual **Favourites** / **Recently Watched** groups, so pressing **OK** (or **LEFT** with a single source) appeared to jump to *Recently Watched* instead of staying in the category you were in.
 

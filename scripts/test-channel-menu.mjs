@@ -264,6 +264,10 @@ test('opening the menu stays in the real channel group, not Recently Watched or 
   
   menu.open(channels, 'ch:missing|0');
   assert.equal(menu.groupIdx, 0);
+  
+  menu.open(channels, target.key);
+  menu._toggleFav();
+  assert.equal(menu.groupIdx, 3, 'removing a favourite stays in the real group');
   menu.close();
   saveFavorites([]);
   clearRecents();
