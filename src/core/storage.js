@@ -92,7 +92,8 @@ const DEFAULT_SETTINGS = {
   autoRefresh: true,
   sleepMinutes: 0,
   parentalPin: '',
-  appLock: false
+  appLock: false,
+  debugOverlay: false
 };
 export function getSettings() {
   const raw = read('settings', {});

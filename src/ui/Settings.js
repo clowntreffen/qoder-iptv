@@ -70,6 +70,7 @@ export class Settings {
     const rows = [
       { key: 'aspect', type: 'select', label: t('settings.aspect'), value: aspectLabel(this.s.aspect) },
       { key: 'decoder', type: 'select', label: t('settings.decoder'), value: decoderLabel(this.s.decoder) },
+      { key: 'debug', type: 'select', label: t('settings.debug'), value: this.s.debugOverlay ? t('label.on') : t('label.off') },
       { key: 'autoPlay', type: 'select', label: t('settings.autoPlay'), value: this.s.autoPlayLast ? t('label.on') : t('label.off') },
       { key: 'netSpeed', type: 'select', label: t('settings.netSpeed'), value: this.s.showNetSpeed ? t('label.on') : t('label.off') },
       { key: 'fontScale', type: 'select', label: t('settings.fontScale'), value: fontLabel(this.s.fontScale) },
@@ -143,6 +144,9 @@ export class Settings {
         break;
       case 'decoder':
         this.s.decoder = cyc(DECODERS, this.s.decoder);
+        break;
+      case 'debug':
+        this.s.debugOverlay = !this.s.debugOverlay;
         break;
       case 'autoPlay':
         this.s.autoPlayLast = !this.s.autoPlayLast;

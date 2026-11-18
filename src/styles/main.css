@@ -759,3 +759,12 @@ img + .logo-txt { display: none; }
 .eg-detail-empty { font-size: 24px; color: var(--ui-muted); }
 .eg-prog .reminder { flex-shrink: 0; color: #f2d18b; font-size: 21px; }
 .eg-prog.focused .reminder { color: #fff; }
+
+#debug-overlay { position: absolute; top: 110px; left: 24px; z-index: 50; pointer-events: none; max-width: 760px; }
+#debug-overlay.hidden { display: none; }
+.dbg-box { background: rgba(0,0,0,0.78); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 12px 16px; font-family: monospace; font-size: 20px; line-height: 1.35; color: #dfe5ee; white-space: pre-wrap; word-break: break-word; }
+.dbg-title { color: #f2d18b; font-weight: 700; margin-bottom: 6px; letter-spacing: 1px; }
+.dbg-row { display: flex; gap: 18px; justify-content: space-between; }
+.dbg-row span { color: #97a2b4; }
+.dbg-events { margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 6px; color: #aeb8c8; }
+.dbg-ev { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

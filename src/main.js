@@ -1,5 +1,6 @@
 
-import { KEY, digitOf } from './core/keys.js';
+import { KEY, digitOf, createOkPress } from './core/keys.js';
+import { getChannelTrack, saveChannelTrack } from './core/channelTracks.js';
 import { fetchM3U, applyActiveSource, renumberChannels, groupChannels } from './core/m3uParser.js';
 import { epgStore } from './core/epgStore.js';
 import { buildCatchupUrl, probeCatchup } from './core/catchup.js';
@@ -54,6 +55,7 @@ import { Search } from './ui/Search.js';
 import { PinEntry } from './ui/PinEntry.js';
 import { BackupDialog } from './ui/BackupDialog.js';
 import { ChannelEditor } from './ui/ChannelEditor.js';
+import { DebugOverlay } from './ui/DebugOverlay.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -94,6 +96,7 @@ const search = new Search($('search'));
 const pinEntry = new PinEntry($('pin-entry'));
 const backupDialog = new BackupDialog($('backup-dialog'));
 const channelEditor = new ChannelEditor($('channel-editor'));
+const debugOverlay = new DebugOverlay($('debug-overlay'));
 
 
 function toast(msg, ms = 2600) {
@@ -354,6 +357,7 @@ function playLive(ch, delay = 0, mode = 'all') {
     runtimeStall.reset();
     liveStartAt = Date.now();
     beginLoading(false, ch.url);
+    player.setSavedTracks(getChannelTrack(ch.key));
     player.playLive(ch, app.settings.decoder);
     schedulePrefetch();
   };
@@ -768,6 +772,7 @@ epgStore.onUpdate = refreshVisible;
 function applySettings(s) {
   app.settings = s;
   player.setAspect(s.aspect);
+  debugOverlay.setVisible(!!s.debugOverlay);
   netSpeed.setEnabled(!!s.showNetSpeed);
   document.documentElement.style.setProperty('--ui-zoom', s.fontScale || 1);
   document.documentElement.dataset.theme = isValidTheme(s.theme) ? s.theme : DEFAULT_THEME;
@@ -793,6 +798,27 @@ function fitScreen() {
 }
 window.addEventListener('resize', fitScreen);
 window.addEventListener('orientationchange', fitScreen);
+
+setInterval(() => {
+  if (debugOverlay.isVisible()) debugOverlay.render(player.getDebugState());
+}, 500);
+
+function rememberChannelTracks() {
+  const ch = app.current;
+  if (!ch || !ch.key) return;
+  const st = player.getTrackState ? player.getTrackState() : null;
+  if (!st) return;
+  const audio = Number.isInteger(st.audioIndex) && st.audioIndex >= 0 ? st.audio[st.audioIndex] : null;
+  const sub = st.subtitleIndex >= 0
+    ? st.subtitles.find((track) => track.index === st.subtitleIndex)
+    : null;
+  saveChannelTrack(ch.key, {
+    audioIndex: st.audioIndex,
+    audioLabel: audio ? audio.label : '',
+    subtitleIndex: st.subtitleIndex,
+    subtitleLabel: sub ? sub.label : ''
+  });
+}
 
 
 function askPin({ title, prompt, onSubmit, onCancel }) {
@@ -1032,6 +1058,8 @@ epgGuide.onProbeCatchup = probeChannelCatchup;
 epgGuide.onToast = toast;
 
 settings.onChange = (s) => applySettings(s);
+player.onDebug = (type, info) => debugOverlay.logEvent(type, info);
+player.onTrackChange = rememberChannelTracks;
 settings.getTrackLabels = trackLabels;
 settings.onCycleAudio = (dir) => {
   const state = player.cycleAudio(dir);
@@ -1211,7 +1239,7 @@ function onKey(code, event) {
   
   switch (code) {
     case KEY.OK:
-      openChannelMenu();
+      okPress.press();
       break;
     case KEY.LEFT:
       
@@ -1246,8 +1274,7 @@ function onKey(code, event) {
       sourceManager.open();
       break;
     case KEY.INFO:
-      if (app.current) osd.show(app.current, { catchup: player.isCatchup(), programme: player.current && player.current.programme });
-      statusBar.show(5000);
+      showCurrentInfo();
       break;
     case KEY.FF:
       if (player.isCatchup()) player.seek(30);
@@ -1275,6 +1302,14 @@ function openChannelMenu() {
   }
   channelMenu.open(visibleChannelsForMenu(), app.current && app.current.key);
 }
+
+function showCurrentInfo() {
+  if (!app.current) return;
+  osd.show(app.current, { catchup: player.isCatchup(), programme: player.current && player.current.programme });
+  statusBar.show(5000);
+}
+
+const okPress = createOkPress({ shortAction: showCurrentInfo, longAction: openChannelMenu });
 
 function openEpgGuide() {
   if (!app.channels.length) return;
@@ -1306,6 +1341,10 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     e.stopPropagation();
   }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.keyCode === KEY.OK) okPress.release();
 });
 
 document.addEventListener('click', () => player.userUnmute());

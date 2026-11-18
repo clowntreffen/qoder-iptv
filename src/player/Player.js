@@ -25,6 +25,7 @@ import {
 import { setRangeLanes, rangeLanes, rangeLoad, warmLanes } from './rangeLoad.js';
 import { makeVodPlaylistLoader } from './vodPlaylist.js';
 import { SpeedEngine, detectSpeed, primeAudio } from './speed/engine.js';
+import { pickSavedTrack } from '../core/channelTracks.js';
 
 
 // Direct .m3u8 URLs and reverse-proxy URLs whose `url=`/`u=` target ends in
@@ -264,6 +265,9 @@ export class Player {
     this.onStateChange = null;
     this.onMediaInfo = null; 
     this.onNotice = null; 
+    this.onDebug = null; // (type, info) => void, debug overlay events
+    this.onTrackChange = null; // () => void, fired after an audio/subtitle change
+    this._savedTracks = null;
     this._warmHold = true;
     this._nativeRetries = 0;
     this._nativeErrAt = 0;
@@ -329,7 +333,10 @@ export class Player {
     });
     
     ['loadedmetadata', 'resize', 'playing'].forEach((ev) => {
-      this.video.addEventListener(ev, () => this._readVideoSize());
+      this.video.addEventListener(ev, () => {
+        this._readVideoSize();
+        if (ev === 'loadedmetadata') this.applySavedTracks();
+      });
     });
     ['playing', 'waiting', 'pause', 'ended'].forEach((ev) => {
       this.video.addEventListener(ev, () => {
@@ -504,6 +511,53 @@ export class Player {
     if (this._phase && !this._phase[name]) this._phase[name] = Date.now();
   }
 
+  _dbg(type, info) {
+    if (this.onDebug) this.onDebug(type, info);
+  }
+
+  setSavedTracks(track) {
+    this._savedTracks = track && typeof track === 'object' ? track : null;
+    this.applySavedTracks();
+  }
+
+  applySavedTracks() {
+    const saved = this._savedTracks;
+    if (!saved) return;
+    const st = this.getTrackState();
+    const audio = pickSavedTrack(st.audio, {
+      index: saved.audioIndex,
+      label: saved.audioLabel
+    });
+    if (audio != null && audio.index !== st.audioIndex) {
+      if (this.hls) this.hls.audioTrack = audio.index;
+      else {
+        const tracks = this.video.audioTracks || [];
+        for (let i = 0; i < tracks.length; i++) tracks[i].enabled = i === audio.index;
+      }
+      this._emitTrackChange();
+    }
+    const sub = pickSavedTrack(st.subtitles, {
+      index: saved.subtitleIndex,
+      label: saved.subtitleLabel
+    });
+    if (sub != null && sub.index !== st.subtitleIndex) {
+      if (this.hls) {
+        this.hls.subtitleTrack = sub.index;
+        this.hls.subtitleDisplay = sub.index >= 0;
+      } else {
+        const tracks = this.video.textTracks || [];
+        for (const track of st.subtitles) {
+          tracks[track.index].mode = track.index === sub.index ? 'showing' : 'disabled';
+        }
+      }
+      this._emitTrackChange();
+    }
+  }
+
+  _emitTrackChange() {
+    if (this.onTrackChange) this.onTrackChange();
+  }
+
   
   
   startupPhases() {
@@ -614,6 +668,43 @@ export class Player {
     return { audio, audioIndex, subtitles, subtitleIndex };
   }
 
+  getDebugState() {
+    const st = this.getTrackState();
+    const audio = Number.isInteger(st.audioIndex) && st.audioIndex >= 0
+      ? st.audio[st.audioIndex]
+      : null;
+    const sub = st.subtitleIndex >= 0
+      ? st.subtitles.find((track) => track.index === st.subtitleIndex)
+      : null;
+    let level = '-';
+    let bitrate = null;
+    if (this.hls && this.hls.levels && this.hls.levels.length) {
+      const li = Number.isInteger(this.hls.currentLevel) ? this.hls.currentLevel : -1;
+      const lv = li >= 0 ? this.hls.levels[li] : null;
+      if (lv) {
+        level = String(li);
+        bitrate = Number(lv.bitrate) || null;
+      }
+    }
+    return {
+      path: this.activePath(),
+      readyState: this.video.readyState,
+      paused: this.video.paused,
+      position: this.video.currentTime || 0,
+      ahead: this._bufferAhead(),
+      level,
+      bitrate,
+      audioLabel: audio ? audio.label : '',
+      subtitleLabel: sub ? sub.label : '',
+      videoCodec: this.mediaInfo.videoCodec,
+      audioCodec: this.mediaInfo.audioCodec,
+      width: this.mediaInfo.width,
+      height: this.mediaInfo.height,
+      remux: isRemuxUrl(this._rawUrl),
+      fragLoadSec: this._fragLoadSec
+    };
+  }
+
   cycleAudio(dir = 1) {
     const state = this.getTrackState();
     const n = state.audio.length;
@@ -627,6 +718,7 @@ export class Player {
       const tracks = this.video.audioTracks || [];
       for (let i = 0; i < tracks.length; i++) tracks[i].enabled = i === idx;
     }
+    this._emitTrackChange();
     return this.getTrackState();
   }
 
@@ -647,6 +739,7 @@ export class Player {
         tracks[track.index].mode = track.index === next ? 'showing' : 'disabled';
       }
     }
+    this._emitTrackChange();
     return this.getTrackState();
   }
 
@@ -947,6 +1040,8 @@ export class Player {
     }
     hls.on(Hls.Events.ERROR, (evt, data) => {
       if (!data || this.hls !== hls) return;
+      this._dbg(data.fatal ? 'error' : 'warn',
+        String(data.type || '') + '/' + String(data.details || '') + ' http=' + this._errorStatus(data));
       
       if (eng && this.engine === eng &&
           ((data.fatal && data.type === Hls.ErrorTypes.MEDIA_ERROR) || /codec/i.test(data.details || ''))) {
@@ -992,7 +1087,10 @@ export class Player {
     
     const countBytes = (evt, data) => {
       if (this.hls !== hls) return;
-      if (data && data.frag && data.frag.type === 'main' && Number.isFinite(data.frag.sn)) this._mark('frag');
+      if (data && data.frag && data.frag.type === 'main' && Number.isFinite(data.frag.sn)) {
+        this._mark('frag');
+        this._dbg('frag', '#' + data.frag.sn + ' ok');
+      }
       const st = data && (data.stats || (data.frag && data.frag.stats));
       const n = (st && (st.loaded || st.total)) ||
         (data && data.payload && data.payload.byteLength) || 0;
@@ -1014,7 +1112,19 @@ export class Player {
       if (!data || this.hls !== hls) return;
       if (data.video && data.video.codec) this.mediaInfo.videoCodec = data.video.codec;
       if (data.audio && data.audio.codec) this.mediaInfo.audioCodec = data.audio.codec;
+      this._dbg('codecs', String((data.video && data.video.codec) || '?') + '/' + String((data.audio && data.audio.codec) || '?'));
       this._emitMediaInfo();
+    });
+
+    hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+      if (this.hls !== hls) return;
+      this._dbg('audioTracks', String((hls.audioTracks || []).length));
+      this.applySavedTracks();
+    });
+    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+      if (this.hls !== hls) return;
+      this._dbg('subtitles', String((hls.subtitleTracks || []).length));
+      this.applySavedTracks();
     });
     
     hls.on(Hls.Events.LEVEL_SWITCHED, (evt, data) => {
@@ -1035,6 +1145,8 @@ export class Player {
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       if (this.hls !== hls) return;
       this._mark('manifest');
+      this._dbg('manifest', 'levels=' + ((hls.levels || []).length));
+      this.applySavedTracks();
       
       
       

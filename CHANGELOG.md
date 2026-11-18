@@ -2,6 +2,12 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.73
+- Comfort: **OK shows only channel info** (name, programme, source, codec, resolution). Holding OK opens the channel list instead.
+- **Audio/subtitles per channel**: a manual track change is remembered for that channel and restored automatically the next time it plays — the choice follows the channel, not a global default.
+- **Debug overlay**: new Settings toggle **Debug Overlay**. Shows player state, codec/size, bitrate, buffer, tracks and a rolling event list — without any stream URLs.
+- Debug overlay is hidden by default; no URLs appear anywhere in the app.
+
 ## 1.1.72
 - Removed every Chinese character from the app and the build: boot diagnostics are English-only (`Loading...`), HTML comments are translated, the legacy ungrouped-group label is gone, and the unused Chinese category ranking / channel-name matching table was deleted. No Chinese text or escapes remain in source (only a UTF-8 BOM constant used for playlist parsing stays).
 - EPG name normalization is now Latin-only: quality suffixes (HD/FHD/UHD/4K/HDR) and `CCTV<n>` numbers are still stripped/normalized; Chinese channel aliases are no longer mapped.

@@ -7,6 +7,7 @@ const DICT = {
     'settings.title': 'Settings',
     'settings.aspect': 'Aspect Ratio',
     'settings.decoder': 'Decoder',
+    'settings.debug': 'Debug Overlay',
     'settings.autoPlay': 'Auto-play last channel on start',
     'settings.netSpeed': 'Show network speed',
     'settings.fontScale': 'Font Size',
