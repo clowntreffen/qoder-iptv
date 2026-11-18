@@ -367,19 +367,19 @@ test('date column title has no note span when nothing to report', () => {
 });
 
 test('text logo derives a short code from the channel name', () => {
-  assert.equal(logoText('CCTV-1 \u7efc\u5408'), 'CCTV1');
-  assert.equal(logoText('CCTV-5+ \u4f53\u80b2\u8d5b\u4e8b'), 'CCTV5+');
-  assert.equal(logoText('\u6e56\u5357\u536b\u89c6'), '\u6e56\u5357');
-  assert.equal(logoText('\u30104K\u3011\u8d85\u9ad8\u6e05'), '4K');
+  assert.equal(logoText('CCTV-1'), 'CCTV1');
+  assert.equal(logoText('CCTV-5+'), 'CCTV5+');
+  assert.equal(logoText('ÄÖ'), 'ÄÖ');
+  assert.equal(logoText('(4K) HDR'), '4K');
   assert.equal(logoText('BBC One'), 'BBC');
   assert.equal(logoText('  '), '?');
 });
 
 test('logo html keeps a text tile behind the image so a failed load is not an empty box', () => {
-  const plain = logoHtml({ name: '\u6e56\u5357\u536b\u89c6' });
+  const plain = logoHtml({ name: 'ÄÖ' });
   assert.doesNotMatch(plain, /<img/);
-  assert.match(plain, /^<span class="logo-txt logo-c\d w-s">\u6e56\u5357<\/span>$/);
-  const withImg = logoHtml({ name: 'CCTV-16 \u5965\u6797\u5339\u514b', logo: 'http://s/a.png?"x' });
+  assert.match(plain, /^<span class="logo-txt logo-c\d w-s">ÄÖ<\/span>$/);
+  const withImg = logoHtml({ name: 'CCTV-16', logo: 'http://s/a.png?"x' });
   assert.match(withImg, /^<img src="http:\/\/s\/a\.png\?&quot;x"[^>]*onerror="this\.remove\(\)"[^>]*\/><span class="logo-txt logo-c\d w-l">CCTV16<\/span>$/);
 });
 
@@ -413,6 +413,6 @@ test('logo column collapses when every visible logo URL has failed to load', () 
   for (const u of urls) markLogoFailed(u);
   menu.render();
   assert.equal(list.classList.contains('no-logo'), true);
-  assert.doesNotMatch(`<div class="logo">${logoHtml({ name: '\u6e56\u5357\u536b\u89c6', logo: urls[0] })}</div>`, /<img/, 'failed URLs are not requested again');
+  assert.doesNotMatch(`<div class="logo">${logoHtml({ name: 'RTL Sport', logo: urls[0] })}</div>`, /<img/, 'failed URLs are not requested again');
   menu.close();
 });

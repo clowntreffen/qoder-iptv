@@ -458,7 +458,6 @@ const DICT = {
 
 
 const UNGROUPED = 'Ungrouped';
-const UNGROUPED_LEGACY = '\u672a\u5206\u7ec4';
 
 
 const lang = 'en';
@@ -481,7 +480,7 @@ export function setLang() {
 }
 
 export function groupLabel(name) {
-  return name === UNGROUPED || name === UNGROUPED_LEGACY ? t('group.ungrouped') : name;
+  return name === UNGROUPED ? t('group.ungrouped') : name;
 }
 
 

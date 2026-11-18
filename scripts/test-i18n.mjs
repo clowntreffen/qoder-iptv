@@ -47,9 +47,8 @@ test('t returns English copy; missing key falls back to key', () => {
   assert.equal(t('no.such.key'), 'no.such.key');
 });
 
-test('groupLabel renders old and new ungrouped keys in English', () => {
+test('groupLabel renders the ungrouped key in English', () => {
   assert.equal(groupLabel('Ungrouped'), 'Ungrouped');
-  assert.equal(groupLabel('\u672a\u5206\u7ec4'), 'Ungrouped');
   assert.equal(groupLabel('News'), 'News');
 });
 

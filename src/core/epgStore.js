@@ -15,36 +15,14 @@ const SHIFTED_MAX = 500;
 
 
 
-const CCTV_BY_NAME = {
-  \u7efc\u5408: 1, \u8d22\u7ecf: 2, \u7efc\u827a: 3, \u4e2d\u6587\u56fd\u9645: 4, \u4f53\u80b2: 5, \u7535\u5f71: 6, \u56fd\u9632\u519b\u4e8b: 7, \u519b\u4e8b: 7,
-  \u7535\u89c6\u5267: 8, \u7eaa\u5f55: 9, \u79d1\u6559: 10, \u620f\u66f2: 11, \u793e\u4f1a\u4e0e\u6cd5: 12, \u65b0\u95fb: 13, \u5c11\u513f: 14,
-  \u97f3\u4e50: 15, \u5965\u6797\u5339\u514b: 16, \u519c\u4e1a\u519c\u6751: 17, \u519c\u4e1a: 17
-};
-
-
-
-
 export function normalizeEpgName(name) {
   if (!name) return '';
   let s = String(name);
   try { s = s.normalize('NFKC'); } catch (e) {}
-  s = s.toLowerCase().replace(/[\s\-_\u00b7\u30fb()\uff08\uff09\[\]\u3010\u3011]/g, '');
-  
-  s = s.replace(/(\u8d85\u9ad8\u6e05|\u9ad8\u6e05|\u6807\u6e05|\u84dd\u5149|uhd|fhd|hd|sd|4k|8k|h265|hevc|hdr)/g, '');
-  const cen = /^\u4e2d\u592e(?:\u7535\u89c6\u53f0)?(?:cctv)?(\d{1,2})(?:\+)?(?:\u9891\u9053)?$/.exec(s);
-  if (cen) return 'cctv' + Number(cen[1]);
-  const cenStation = /^\u4e2d\u592e(?:\u7535\u89c6\u53f0)?(\d{1,2})\u53f0$/.exec(s);
-  if (cenStation) return 'cctv' + Number(cenStation[1]);
-  const named = /^\u4e2d\u592e(?:\u7535\u89c6\u53f0)?(.+?)(?:\u9891\u9053)?$/.exec(s);
-  if (named && CCTV_BY_NAME[named[1]]) return 'cctv' + CCTV_BY_NAME[named[1]];
+  s = s.toLowerCase().replace(/[\s\-_·()\[\]]/g, '');
+  s = s.replace(/(uhd|fhd|hd|sd|4k|8k|h265|hevc|hdr)/g, '');
   const m = /^cctv(\d{1,2})(\+)?(.*)$/.exec(s);
-  if (m) {
-    
-    
-    const rest = m[3] || '';
-    const channelName = /^(\u7efc\u5408|\u8d22\u7ecf|\u7efc\u827a|\u4e2d\u6587\u56fd\u9645|\u56fd\u9645|\u4f53\u80b2\u8d5b\u4e8b|\u4f53\u80b2|\u7535\u5f71|\u56fd\u9632\u519b\u4e8b|\u519b\u4e8b|\u7535\u89c6\u5267|\u7eaa\u5f55|\u79d1\u6559|\u620f\u66f2|\u793e\u4f1a\u4e0e\u6cd5|\u65b0\u95fb|\u5c11\u513f|\u97f3\u4e50|\u5965\u6797\u5339\u514b|\u519c\u4e1a\u519c\u6751|\u519c\u4e1a|\u9891\u9053)$/;
-    return 'cctv' + Number(m[1]) + (m[2] || '') + (rest && !channelName.test(rest) ? rest : '');
-  }
+  if (m) return 'cctv' + Number(m[1]) + (m[2] || '') + (m[3] || '');
   return s;
 }
 

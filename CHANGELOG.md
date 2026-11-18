@@ -2,6 +2,11 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.72
+- Removed every Chinese character from the app and the build: boot diagnostics are English-only (`Loading...`), HTML comments are translated, the legacy ungrouped-group label is gone, and the unused Chinese category ranking / channel-name matching table was deleted. No Chinese text or escapes remain in source (only a UTF-8 BOM constant used for playlist parsing stays).
+- EPG name normalization is now Latin-only: quality suffixes (HD/FHD/UHD/4K/HDR) and `CCTV<n>` numbers are still stripped/normalized; Chinese channel aliases are no longer mapped.
+- Updated the affected tests to Latin inputs so the suite verifies the new behaviour.
+
 ## 1.1.71
 - Cold remux startup tolerance: manifest paths matching `/ts/<id>/index.m3u8` (provider-agnostic pattern) get a 35s fragment timeout, 30s manifest timeout, 5 fragment retries and a 40s start budget, so a cold first segment (~25-30s) no longer aborts playback.
 - Manifest pre-warm: selecting a remux channel fires a small `no-store` manifest request so the server can start its background master fetch before the real segment request.
