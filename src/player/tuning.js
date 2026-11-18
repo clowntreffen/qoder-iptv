@@ -22,7 +22,7 @@ export const TUNING_SPECS = [
   {
     key: 'liveSyncDuration',
     values: [8, 12, 16, 20, 22, 26, 30, 40, 50],
-    def: 22,
+    def: 12,
     fmt: (v) => v + 's'
   },
   {
@@ -131,7 +131,7 @@ export const TUNING_SPECS = [
   {
     key: 'liveSyncOnStallIncrease',
     values: [0, 1, 2, 3, 5],
-    def: 1,
+    def: 0,
     fmt: (v) => v + 's'
   },
   {

@@ -807,6 +807,8 @@ test('no playlist before buffer is ready; first release uses the newest segment'
 });
 
 test('live periodic refetch downloads only new segments; no refresh while waiting; fresh playlist after recovery', async (t) => {
+  // Pin the legacy live-edge offset: this test's segment window is sized around it.
+  tuning(t, { liveSyncDuration: 22 });
   const { player, ahead, jobs, video, base } = fixture(t);
   let now = Date.now();
   t.mock.method(Date, 'now', () => now);

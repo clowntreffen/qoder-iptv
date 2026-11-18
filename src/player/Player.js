@@ -93,7 +93,7 @@ const CFG = {
     //
     
     
-    liveSyncDuration: 22,
+    liveSyncDuration: 12,
     
     startOnSegmentBoundary: true,
     maxBufferLength: 30,
