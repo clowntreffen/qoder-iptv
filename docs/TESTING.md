@@ -75,11 +75,27 @@ scripts/
 
    ```bash
    npm run dev
-   # add a source pointing at http://127.0.0.1:8080/live.m3u8
+   # add a source pointing at http://127.0.0.1:8080/demo-local.m3u
    ```
 
-   On the TV later: add `http://<PC-LAN-IP>:8080/live.m3u8` as the source URL,
-   or sideload `test/streams/output/demo-lan.m3u`.
+   Never point the app's M3U source at `live.m3u8` directly: that file is an
+   HLS media playlist, not a channel list.
+
+   On the TV later: add `http://<PC-LAN-IP>:8080/demo-lan.m3u` as the source
+   URL (or sideload that file).
+
+5. Full headless end-to-end test (no TV, no provider):
+
+   ```bash
+   ./scripts/start-stream.sh          # stream on :8080
+   npm run smoke                      # builds dist/, serves :5199, Playwright Chromium
+   ```
+
+   Checks: production build, app boots, video plays and advances, short OK =
+   info, BACK = exit dialog, held OK = channel list, BACK closes it. Writes
+   screenshots to `test/browser/shots/`. Exits non-zero on failure.
+   `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` keeps `npm i` from fetching Chromium
+   (the browser is only needed for `npm run smoke`).
 
 ## Checks
 

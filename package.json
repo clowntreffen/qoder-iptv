@@ -11,15 +11,17 @@
     "build": "vite build",
     "preview": "vite preview --port 5174",
     "package": "npm run build && ares-package dist -o .",
-    "install-tv": "ares-install --device tv ./com.qoder.iptv_1.1.71_all.ipk",
+    "install-tv": "ares-install --device tv ./com.qoder.iptv_1.1.73_all.ipk",
     "launch-tv": "ares-launch --device tv com.qoder.iptv",
-    "test": "node --test scripts/test-i18n.mjs scripts/test-epg-store.mjs scripts/test-range-load.mjs scripts/test-source-manager.mjs scripts/test-startup.mjs scripts/test-warm-gate.mjs scripts/test-dev-proxy.mjs scripts/test-m3u-attrs.mjs scripts/test-channel-menu.mjs scripts/test-catchup-probe.mjs scripts/test-speed.mjs scripts/test-speed-player.mjs scripts/test-req-headers.mjs scripts/test-last-source.mjs scripts/test-epg-name.mjs scripts/test-stall-watchdog.mjs scripts/test-dead-urls.mjs scripts/test-remux-tolerance.mjs scripts/test-reminders-backup.mjs scripts/test-search-pin-tracks.mjs scripts/test-cache-fallback.mjs scripts/test-pin.mjs scripts/test-log-redaction.mjs scripts/test-catchup-resume.mjs scripts/test-parental-locks.mjs scripts/test-channel-custom.mjs scripts/test-epg-search.mjs scripts/test-themes.mjs scripts/test-seek-preview.mjs scripts/test-keys.mjs scripts/test-channel-tracks.mjs scripts/test-debug-overlay.mjs"
+    "test": "node --test scripts/test-i18n.mjs scripts/test-epg-store.mjs scripts/test-range-load.mjs scripts/test-source-manager.mjs scripts/test-startup.mjs scripts/test-warm-gate.mjs scripts/test-dev-proxy.mjs scripts/test-m3u-attrs.mjs scripts/test-channel-menu.mjs scripts/test-catchup-probe.mjs scripts/test-speed.mjs scripts/test-speed-player.mjs scripts/test-req-headers.mjs scripts/test-last-source.mjs scripts/test-epg-name.mjs scripts/test-stall-watchdog.mjs scripts/test-dead-urls.mjs scripts/test-remux-tolerance.mjs scripts/test-reminders-backup.mjs scripts/test-search-pin-tracks.mjs scripts/test-cache-fallback.mjs scripts/test-pin.mjs scripts/test-log-redaction.mjs scripts/test-catchup-resume.mjs scripts/test-parental-locks.mjs scripts/test-channel-custom.mjs scripts/test-epg-search.mjs scripts/test-themes.mjs scripts/test-seek-preview.mjs scripts/test-keys.mjs scripts/test-channel-tracks.mjs scripts/test-debug-overlay.mjs",
+    "smoke": "node scripts/smoke-e2e.mjs"
   },
   "dependencies": {
     "hls.js": "^1.5.13"
   },
   "devDependencies": {
     "@webos-tools/cli": "^3.2.6",
+    "playwright": "^1.65.1",
     "vite": "^5.3.1"
   },
   "engines": {

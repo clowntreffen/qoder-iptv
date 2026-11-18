@@ -38,8 +38,8 @@ fi
 cat > "$OUT_DIR/demo-local.m3u" <<'EOF'
 #EXTM3U
 #EXTINF:-1 tvg-id="local-test" group-title="Local",Local HLS Test
-http://localhost:8080/live.m3u8
+http://127.0.0.1:8080/live.m3u8
 EOF
 
-echo "[stream] serving on http://localhost:8080/live.m3u8"
+echo "[stream] serving on http://127.0.0.1:8080/live.m3u8"
 wait "$FFMPEG_PID"

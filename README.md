@@ -35,6 +35,7 @@ Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
 ./test/streams/make-test-stream.sh     # FFmpeg local HLS test stream
 ./scripts/start-stream.sh              # stream on http://localhost:8080/live.m3u8
 ./scripts/start-web.sh                 # browser test page on http://127.0.0.1:8081/test/browser/stream-test.html
+npm run smoke                          # headless Chromium E2E: build, play, OK/BACK keys
 ```
 
 Synthetic `testsrc2` + sine, no provider or copyrighted content. Details, ports and the app-against-local-stream workflow: [docs/TESTING.md](docs/TESTING.md).
