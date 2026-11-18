@@ -2,6 +2,10 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.74
+- Lower live latency: live-edge offset default 22s → 12s (matches the hls.js default of 3× target duration). Measured on-device delay on the local test stream dropped from ~37s to ~21s.
+- Buffer bump on stall is now 0s by default, so a stall no longer permanently grows the live delay. Both values stay adjustable in the hidden HLS tuning screen.
+
 ## 1.1.73
 - Comfort: **OK shows only channel info** (name, programme, source, codec, resolution). Holding OK opens the channel list instead.
 - **Audio/subtitles per channel**: a manual track change is remembered for that channel and restored automatically the next time it plays — the choice follows the channel, not a global default.
