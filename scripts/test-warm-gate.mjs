@@ -590,7 +590,7 @@ test('expired prefetch tasks are dropped; stale segments are not downloaded afte
   const { player, jobs, queue, ahead } = fixture(t);
   queue();
   const now = Date.now();
-  t.mock.method(Date, 'now', () => now + 13000);
+  t.mock.method(Date, 'now', () => now + 41000);
   ahead(10, 'playing');
   assert.equal(player._warmQ.length, 0);
   assert.equal(jobs.length, 0);
@@ -600,7 +600,7 @@ test('refresh stale playlist once buffer is safe; prefetch fresh segments instea
   const { player, jobs, queue, ahead } = fixture(t);
   const oldUrls = queue();
   const now = Date.now();
-  t.mock.method(Date, 'now', () => now + 13000);
+  t.mock.method(Date, 'now', () => now + 41000);
   let requests = 0;
   t.mock.method(globalThis, 'fetch', async () => {
     requests++;
@@ -938,7 +938,7 @@ test('fatal error destroys the failed instance before backup; old callback canno
     player.playLive({ name: 'Primary', url: base + '/primary.m3u8' }, 'hls');
     const old = player.hls;
     const oldHandler = handler;
-    player._netRetries = player._mediaRetries = 3;
+    player._netRetries = player._mediaRetries = 8;
     let callbacks = 0;
     player.onError = () => {
       callbacks++;

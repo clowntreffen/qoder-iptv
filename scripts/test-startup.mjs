@@ -656,7 +656,7 @@ test('native fallback restarts watchdog, keeps total elapsed, clears old waiting
   let id = 10;
   const context = vm.createContext({
     player: {}, zapStarting: false, zapStartAt: 1000, startWatchdog: null, stallTimer: 5,
-    START_TIMEOUT_MS: 15000, onStartTimeout() {}, netSpeed: { reset() {} },
+    START_TIMEOUT_MS: 15000, startTimeoutMs: () => 15000, onStartTimeout() {}, netSpeed: { reset() {} },
     loading: value => shown.push(value),
     setTimeout: (fn, ms) => { timers.set(++id, { fn, ms }); return id; },
     clearTimeout: timer => { cleared.push(timer); timers.delete(timer); }
@@ -893,7 +893,7 @@ test('reverse fallback gives HLS watchdog full deadline and keeps total elapsed'
   let deadline;
   const context = vm.createContext({
     player: {}, zapStarting: true, zapStartAt: 1000, startWatchdog: 5, stallTimer: 6,
-    START_TIMEOUT_MS: 15000, onStartTimeout() {}, netSpeed: { reset() {} },
+    START_TIMEOUT_MS: 15000, startTimeoutMs: () => 15000, onStartTimeout() {}, netSpeed: { reset() {} },
     loading() {}, clearTimeout() {},
     setTimeout: (fn, ms) => { deadline = ms; return 7; }
   });
@@ -961,7 +961,8 @@ test('watchdog must not flag paused ready media as bad; no data still errors', a
   let attempts = 0;
   const context = vm.createContext({
     player: { video: { paused: true, readyState: 4, error: null } },
-    startWatchdog: null, START_TIMEOUT_MS: 15000, zapStarting: true, stallTimer: null,
+    startWatchdog: null, START_TIMEOUT_MS: 15000, startTimeoutMs: () => 15000,
+    zapStarting: true, stallTimer: null,
     setTimeout: () => 7, clearTimeout() {}, loading() {}, toast() {}, t: key => key,
     tryFailover() { attempts++; return false; }
   });

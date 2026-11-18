@@ -8,6 +8,13 @@ export function resolveMediaUrl(uri, baseUrl) {
   return resolved.href;
 }
 
+// Provider-agnostic remux manifest pattern: <host>/ts/<id>/index.m3u8
+const REMUX_MANIFEST_RE = /\/ts\/[^/?#]+\/index\.m3u8(?:[?#]|$)/i;
+
+export function isRemuxUrl(raw) {
+  return typeof raw === 'string' && REMUX_MANIFEST_RE.test(raw);
+}
+
 export function proxied(url) {
   if (!url) return url;
   try {

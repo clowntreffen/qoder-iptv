@@ -30,6 +30,7 @@ import {
 import { applyChannelOverrides, getOverride, orderChannels, sortGroup } from './core/channelCustomization.js';
 import { DEFAULT_THEME, isValidTheme } from './core/themes.js';
 import { activeDeadUrls } from './core/deadUrls.js';
+import { isRemuxUrl } from './core/net.js';
 import { StallWatchdog } from './core/stallWatchdog.js';
 import { takeDueReminders } from './core/reminders.js';
 import { backupText, restoreBackup } from './core/backup.js';
@@ -179,7 +180,13 @@ let zapStartAt = 0;
 let stallTimer = null;
 let startWatchdog = null; 
 let failoverCount = 0; 
-const START_TIMEOUT_MS = 15000; 
+const START_TIMEOUT_MS = 15000;
+const REMUX_START_TIMEOUT_MS = 40000;
+
+function startTimeoutMs(url) {
+  const target = url || (player.current && player.current.url);
+  return isRemuxUrl(target) ? REMUX_START_TIMEOUT_MS : START_TIMEOUT_MS;
+}
 const runtimeStall = new StallWatchdog({
   getPosition: () => (player.video && player.video.currentTime) || 0,
   isActive: () => !!app.current && !player.isCatchup() && !document.hidden &&
@@ -187,14 +194,14 @@ const runtimeStall = new StallWatchdog({
   onStall: () => handleRuntimeStall()
 });
 
-function beginLoading(preserveStart = false) {
+function beginLoading(preserveStart = false, url = null) {
   zapStarting = true;
   if (typeof runtimeStall !== 'undefined') runtimeStall.stop();
   if (!preserveStart || !zapStartAt) zapStartAt = Date.now();
   clearTimeout(stallTimer);
   stallTimer = null;
   clearTimeout(startWatchdog);
-  startWatchdog = setTimeout(onStartTimeout, START_TIMEOUT_MS);
+  startWatchdog = setTimeout(onStartTimeout, startTimeoutMs(url));
   loading(true);
   netSpeed.reset(); 
 }
@@ -213,7 +220,7 @@ function endLoading() {
 function onStartTimeout() {
   startWatchdog = null;
   if (player.video.paused && player.video.readyState >= 2 && !player.video.error) {
-    startWatchdog = setTimeout(onStartTimeout, START_TIMEOUT_MS);
+    startWatchdog = setTimeout(onStartTimeout, startTimeoutMs());
     return;
   }
   if (tryFailover()) return;
@@ -233,7 +240,7 @@ function tryFailover() {
   ch.sourceIdx = (ch.sourceIdx + 1) % ch.sources.length;
   applyActiveSource(ch);
   liveStartAt = Date.now();
-  beginLoading();
+  beginLoading(false, ch.url);
   player.playLive(ch, app.settings.decoder);
   schedulePrefetch();
   toast(t('toast.tryingBackup', {
@@ -346,7 +353,7 @@ function playLive(ch, delay = 0, mode = 'all') {
     failoverCount = 0; 
     runtimeStall.reset();
     liveStartAt = Date.now();
-    beginLoading();
+    beginLoading(false, ch.url);
     player.playLive(ch, app.settings.decoder);
     schedulePrefetch();
   };
@@ -387,7 +394,7 @@ function playCatchup(ch, programme) {
 function startCatchup(ch, programme, url, resumeAt) {
   app.current = ch;
   player.playCatchup(ch, programme, url, app.settings.decoder, resumeAt);
-  beginLoading();
+  beginLoading(false, url);
   catchupBar.show(programme);
   toast(t('toast.catchup', { title: programme.title }), 3000);
 }
@@ -514,7 +521,7 @@ function switchSource(delta) {
   applyActiveSource(ch);
   setLastChannelKey(ch.key);
   liveStartAt = Date.now();
-  beginLoading();
+  beginLoading(false, ch.url);
   player.playLive(ch, app.settings.decoder);
   osd.show(ch);
   toast(t('toast.sourceSwitch', { n: ch.sourceIdx + 1, total: ch.sources.length, label: ch.sources[ch.sourceIdx].label }));
@@ -637,15 +644,23 @@ async function loadSource(src, options = {}) {
     const deadUrls = activeDeadUrls(src);
     if (deadUrls.length) {
       const dead = new Set(deadUrls);
-      channels = channels.filter((ch) => {
+      const kept = channels.filter((ch) => {
         ch.sources = ch.sources.filter((s) => !dead.has(s.url));
         if (!ch.sources.length) return false;
         ch.sourceIdx = 0;
         applyActiveSource(ch);
         return true;
       });
-      
-      renumberChannels(channels);
+      if (kept.length) {
+        channels = kept;
+        renumberChannels(channels);
+      } else {
+        
+        // The whole list was blacklisted. The playlist is fetched fresh
+        // (server sends no-cache), so trust it again instead of leaving the
+        // group empty while the server may already have swept the source back.
+        renumberChannels(channels);
+      }
     }
     if (!channels.length) {
       if (!silent) {
@@ -1593,7 +1608,7 @@ window.addEventListener('online', () => {
   
   if (app.channels.length && app.current) {
     liveStartAt = Date.now();
-    beginLoading();
+    beginLoading(false, app.current.url);
     player.playLive(app.current, app.settings.decoder);
     schedulePrefetch();
   } else if (app.source) {

@@ -1,4 +1,4 @@
-export const DEAD_URL_TTL_MS = 12 * 3600 * 1000;
+export const DEAD_URL_TTL_MS = 30 * 60 * 1000;
 
 function timestamps(source) {
   const at = source && source.deadUrlsAt;

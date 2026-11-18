@@ -2,6 +2,12 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.71
+- Cold remux startup tolerance: manifest paths matching `/ts/<id>/index.m3u8` (provider-agnostic pattern) get a 35s fragment timeout, 30s manifest timeout, 5 fragment retries and a 40s start budget, so a cold first segment (~25-30s) no longer aborts playback.
+- Manifest pre-warm: selecting a remux channel fires a small `no-store` manifest request so the server can start its background master fetch before the real segment request.
+- Network errors retry with backoff (1s → 2s → 4s → 8s → 15s, up to 8 attempts) instead of failing on the first 5xx; permanent 4xx responses still fail fast.
+- Playlist reload no longer hides the whole list when every source is temporarily marked dead, and dead-URL entries expire after 30 minutes instead of 12 hours.
+
 ## 1.1.70
 - Same category fix for the favourites toggle: removing a favourite now keeps the channel in its real group instead of dropping it into **Recently Watched**.
 

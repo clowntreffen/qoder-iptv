@@ -4,7 +4,7 @@ import { activeDeadUrls, mergeDeadUrls, stampDeadUrls, DEAD_URL_TTL_MS } from '.
 
 const NOW = 1_700_000_000_000;
 
-test('dead URLs stay active for twelve hours, then expire', () => {
+test('dead URLs stay active for thirty minutes, then expire', () => {
   const source = {
     deadUrls: ['a', 'b'],
     deadUrlsAt: { a: NOW, b: NOW - DEAD_URL_TTL_MS }

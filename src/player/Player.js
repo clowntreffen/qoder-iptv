@@ -1,6 +1,6 @@
 
 import Hls from 'hls.js';
-import { proxied, resolveMediaUrl } from '../core/net.js';
+import { proxied, resolveMediaUrl, isRemuxUrl } from '../core/net.js';
 import { rememberHeaders, headersFor, applyHeaders, withHeaders } from '../core/reqHeaders.js';
 import { t } from '../core/i18n.js';
 import { redactUrl } from '../core/util.js';
@@ -35,7 +35,10 @@ export function isHlsUrl(raw) {
 }
 
 const CFG = {
-  maxErrorRetries: 3,
+  maxErrorRetries: 8,
+  networkRetry: {
+    delays: [1000, 2000, 4000, 8000, 15000, 15000, 15000, 15000]
+  },
   
   
   
@@ -153,14 +156,26 @@ const WARM_LEAD = 1;
 
 
 
-const WARM_JOB_TTL = 12000;
+const WARM_JOB_TTL = 40000;
 
 
 
 
 
-const WARM_LOAD_TIMEOUT = 15000;
+const WARM_LOAD_TIMEOUT = 35000;
 const WARM_MANIFEST_TIMEOUT = 4000;
+
+//
+// Cold remux manifests answer immediately, but the first segment can take
+// up to ~30s while the server starts ffmpeg. Budgets must cover that.
+//
+const REMUX_STARTUP_TIMEOUT_MS = 40000;
+const REMUX_FRAG_TIMEOUT_MS = 35000;
+const REMUX_MANIFEST_TIMEOUT_MS = 30000;
+const REMUX_FRAG_MAX_RETRY = 5;
+const REMUX_FRAG_RETRY_DELAY_MS = 1000;
+const PREWARM_DEDUPE_MS = 15000;
+const PREWARM_TIMEOUT_MS = 5000;
 
 
 const RATE_APPLY_MS = 600;
@@ -253,7 +268,9 @@ export class Player {
     this._nativeRetries = 0;
     this._nativeErrAt = 0;
     this._nativeReloadTimer = null;
-    
+    this._netRetryTimer = null;
+    this._prewarmAt = new Map();
+    this._prewarmCtl = new Map();
     
     
     
@@ -318,7 +335,12 @@ export class Player {
       this.video.addEventListener(ev, () => {
         if (!this.current || !this._activePath || (this._startup && this._startup.failed)) return;
         if (ev === 'playing' && (this.video.readyState < 2 || this.video.paused)) return;
-        if (ev === 'playing') { this._netRetries = 0; this._mediaRetries = 0; } 
+        if (ev === 'playing') {
+          this._netRetries = 0;
+          this._mediaRetries = 0;
+          clearTimeout(this._netRetryTimer);
+          this._netRetryTimer = null;
+        }
         if (ev === 'playing' && this._activePath !== 'native') this._playedOnce = true;
         if (ev === 'playing') this._resumeAt = 0; 
         if (ev === 'playing') this._unmuteIfAllowed(); 
@@ -379,7 +401,7 @@ export class Player {
     const native = this._activePath === 'native';
     if (!native && !this.hls) return;
     const v = this.video;
-    const cfg = CFG.startup;
+    const cfg = { ...CFG.startup, timeoutMs: this._startupTimeoutMs || CFG.startup.timeoutMs };
     const now = Date.now();
     const pos = v.currentTime;
     const delta = pos - state.position;
@@ -654,8 +676,34 @@ export class Player {
     return (v.webkitVideoDecodedByteCount || 0) + (v.webkitAudioDecodedByteCount || 0);
   }
 
+  _errorStatus(data) {
+    const res = data && data.response;
+    if (res && Number.isFinite(res.code)) return res.code;
+    const details = data && data.networkDetails;
+    if (details && Number.isFinite(details.status)) return details.status;
+    return 0;
+  }
+
+  _isPermanentNetworkError(data) {
+    const code = this._errorStatus(data);
+    return code >= 400 && code < 500;
+  }
+
+  _scheduleNetRetry(hls) {
+    const delays = CFG.networkRetry.delays;
+    const delay = delays[Math.min(Math.max(this._netRetries - 1, 0), delays.length - 1)];
+    clearTimeout(this._netRetryTimer);
+    this._netRetryTimer = setTimeout(() => {
+      this._netRetryTimer = null;
+      if (this.hls !== hls || !this.current) return;
+      try { hls.startLoad(); } catch (e) {}
+    }, delay);
+  }
+
   _destroyHls() {
     this._clearStartup();
+    clearTimeout(this._netRetryTimer);
+    this._netRetryTimer = null;
     this._startup = null;
     const hls = this.hls;
     this.hls = null;
@@ -726,13 +774,17 @@ export class Player {
     this._resetMediaInfo(); 
 
     const url = proxied(rawUrl);
-    this._rawUrl = rawUrl; 
-    this._proxiedUrl = url; 
+    this._rawUrl = rawUrl;
+    this._proxiedUrl = url;
+    this._startupTimeoutMs = isRemuxUrl(rawUrl) ? REMUX_STARTUP_TIMEOUT_MS : CFG.startup.timeoutMs;
     
     rememberHeaders(rawUrl, this.current && this.current.channel && this.current.channel.headers);
-    this._triedNativeFallback = false; 
-    this._netRetries = 0; 
-    this._mediaRetries = 0;    this._loadedBytes = 0; 
+    this._triedNativeFallback = false;
+    this._netRetries = 0;
+    this._mediaRetries = 0;
+    clearTimeout(this._netRetryTimer);
+    this._netRetryTimer = null;
+    this._loadedBytes = 0;
     const isHls = isHlsUrl(rawUrl);
     
     
@@ -825,7 +877,15 @@ export class Player {
     const tune = getTuning();
     const cfg = { ...CFG.hls, ...toHlsConfig(tune) };
     
-    
+    // Remux manifests are instant, but the first segment can take ~30s while
+    // the server spins up ffmpeg. Give those URLs a wider floor than the
+    // user's tuning values.
+    if (isRemuxUrl(this._rawUrl || url)) {
+      cfg.manifestLoadingTimeOut = Math.max(cfg.manifestLoadingTimeOut || 0, REMUX_MANIFEST_TIMEOUT_MS);
+      cfg.fragLoadingTimeOut = Math.max(cfg.fragLoadingTimeOut || 0, REMUX_FRAG_TIMEOUT_MS);
+      cfg.fragLoadingMaxRetry = Math.max(cfg.fragLoadingMaxRetry || 0, REMUX_FRAG_MAX_RETRY);
+      cfg.fragLoadingRetryDelay = Math.max(cfg.fragLoadingRetryDelay || 0, REMUX_FRAG_RETRY_DELAY_MS);
+    }
     
     cfg.autoStartLoad = false;
     
@@ -909,11 +969,12 @@ export class Player {
         }
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            
-            if (++this._netRetries > CFG.maxErrorRetries) {
+            if (this._isPermanentNetworkError(data)) {
+              fail(t('perr.networkLost'));
+            } else if (++this._netRetries > CFG.maxErrorRetries) {
               fail(t('perr.networkLost'));
             } else {
-              hls.startLoad();
+              this._scheduleNetRetry(hls);
             }
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
@@ -1943,10 +2004,50 @@ export class Player {
   }
 
   
+  // Fire-and-forget manifest hit for remux URLs. The server starts its
+  // background master fetch on manifest access, so this primes the cache
+  // before the real segment request lands.
+  prewarm(rawUrl, headers = null) {
+    if (!rawUrl || !isRemuxUrl(rawUrl)) return;
+    const now = Date.now();
+    if (now - (this._prewarmAt.get(rawUrl) || 0) < PREWARM_DEDUPE_MS) return;
+    this._prewarmAt.set(rawUrl, now);
+    if (this._prewarmAt.size > 64) {
+      for (const [key, ts] of this._prewarmAt) {
+        if (now - ts >= PREWARM_DEDUPE_MS) this._prewarmAt.delete(key);
+      }
+    }
+    const prev = this._prewarmCtl.get(rawUrl);
+    if (prev) { try { prev.abort(); } catch (e) {} }
+    const ctl = new AbortController();
+    this._prewarmCtl.set(rawUrl, ctl);
+    const timer = setTimeout(() => { try { ctl.abort(); } catch (e) {} }, PREWARM_TIMEOUT_MS);
+    const init = { signal: ctl.signal, cache: 'no-store' };
+    const merged = withHeaders(rawUrl, { Range: 'bytes=0-0' });
+    if (merged) init.headers = merged;
+    if (typeof fetch !== 'function') {
+      clearTimeout(timer);
+      this._prewarmCtl.delete(rawUrl);
+      return;
+    }
+    fetch(proxied(rawUrl), init).then((res) => {
+      if (res && res.body && typeof res.body.cancel === 'function') {
+        try { res.body.cancel(); } catch (e) {}
+      }
+      try { console.log('[prewarm] ' + (res && res.status) + ' ' + redactUrl(rawUrl)); } catch (e) {}
+    }).catch(() => {
+      try { console.log('[prewarm] failed ' + redactUrl(rawUrl)); } catch (e) {}
+    }).finally(() => {
+      clearTimeout(timer);
+      if (this._prewarmCtl && this._prewarmCtl.get(rawUrl) === ctl) this._prewarmCtl.delete(rawUrl);
+    });
+  }
+
   playLive(channel, decoder = 'auto') {
     this.mode = 'live';
     this.current = { channel, programme: null, url: channel.url };
     this._resetRate();
+    this.prewarm(channel.url, channel.headers);
     this._load(channel.url, decoder);
   }
 
@@ -2098,6 +2199,10 @@ export class Player {
 
   stop() {
     this._abortWarm(null);
+    if (this._prewarmCtl) {
+      for (const ctl of this._prewarmCtl.values()) { try { ctl.abort(); } catch (e) {} }
+      this._prewarmCtl.clear();
+    }
     this._resetRate();
     this._destroyHls();
     clearTimeout(this._nativeReloadTimer);
