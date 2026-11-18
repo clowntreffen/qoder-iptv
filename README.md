@@ -7,8 +7,8 @@ An open-source M3U / IPTV player for LG webOS TVs (webOS 5.3+, tested on webOS 6
 **No channels, playlists, programmes or EPG data are included.** You add your own M3U playlist and XMLTV/DIYP EPG sources. Only use content you are legally entitled to access. The app does not bypass accounts, authentication or DRM.
 
 ## Download this fork
-[com.qoder.iptv_1.1.71_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.71/com.qoder.iptv_1.1.71_all.ipk) — built from this fork, not from upstream.  
-SHA256: `50fcb164803c909787b8e2e3c60d8b25823fd0a38e10004b79dc1a148d1d2ea0`
+[com.qoder.iptv_1.1.73_all.ipk](https://github.com/clowntreffen/qoder-iptv/releases/download/v1.1.73/com.qoder.iptv_1.1.73_all.ipk) — built from this fork, not from upstream.  
+SHA256: `f34e944f0b97598d1f59fec11b9d753bd481ae216f9c8ff16dbc54ee4ec1d3b5`
 
 Install with LG webOS dev mode / Glasshouse. No playlists, channels or EPG data are included.
 
@@ -28,6 +28,16 @@ See [CHANGELOG.md](CHANGELOG.md) for the full fork history.
 | ![Channel menu](docs/screenshots/channels-epg.png) | ![Settings](docs/screenshots/settings.png) | ![Playback](docs/screenshots/playback-osd.png) |
 
 Demo video recorded on a real LG TV: [docs/demo.mp4](docs/demo.mp4)
+
+## Test environment (no TV needed)
+
+```bash
+./test/streams/make-test-stream.sh     # FFmpeg local HLS test stream
+./scripts/start-stream.sh              # stream on http://localhost:8080/live.m3u8
+./scripts/start-web.sh                 # browser test page on http://127.0.0.1:8081/test/browser/stream-test.html
+```
+
+Synthetic `testsrc2` + sine, no provider or copyrighted content. Details, ports and the app-against-local-stream workflow: [docs/TESTING.md](docs/TESTING.md).
 
 ## Features
 - Multiple M3U/M3U8 sources: add, edit, switch, delete; channels merged by group and name
