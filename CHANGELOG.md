@@ -2,6 +2,10 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.75
+- Transient HLS playlist parse errors no longer kill playback. A manifest read while the server rewrites it (half-written playlist) is now retried instead of escalating to a fatal stop; the parse reason is shown in the debug overlay with URLs stripped.
+- Neighbour prefetch now warms only the direction you are actually zapping (one channel instead of two) and pauses for 60s after an HTTP 503. The server's small remux pool is no longer filled by background warming, so the live channel keeps its slot and stops stalling with 503s.
+
 ## 1.1.74
 - Lower live latency: live-edge offset default 22s → 12s (matches the hls.js default of 3× target duration). Measured on-device delay on the local test stream dropped from ~37s to ~21s.
 - Buffer bump on stall is now 0s by default, so a stall no longer permanently grows the live delay. Both values stay adjustable in the hidden HLS tuning screen.

@@ -424,16 +424,17 @@ function prefetchNeighbors() {
   if (idx < 0) return;
   const next = list[(idx + 1) % list.length];
   const prev = list[(idx - 1 + list.length) % list.length];
-  try {
-    console.log('[warm] neighbours of ' + app.current.name + ': ' + next.name + ' / ' + prev.name);
-  } catch (e) {}
   
   
   const forward = lastZapDir >= 0;
   const first = forward ? next : prev;
-  const second = forward ? prev : next;
+  // Porthole's remux pool is small (TS_MAX=4) and idle remuxes linger ~60s.
+  // Warming both neighbours fills the pool and starves the live channel
+  // (503 -> stall). Warm only the direction the user is actually zapping.
+  try {
+    console.log('[warm] neighbour of ' + app.current.name + ': ' + first.name);
+  } catch (e) {}
   player.prefetch(first.url, false, first.headers);
-  player.prefetch(second.url, false, second.headers);
 }
 
 

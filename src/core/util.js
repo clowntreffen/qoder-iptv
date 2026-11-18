@@ -109,3 +109,14 @@ export function redactUrl(url) {
     return s.replace(/[?#].*$/, '');
   }
 }
+
+
+
+
+export function sanitizeDebug(msg) {
+  return String(msg == null ? '' : msg)
+    .replace(/https?:\/\/[^\s)\]]+/gi, '<url>')
+    .replace(/[\]\[]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}

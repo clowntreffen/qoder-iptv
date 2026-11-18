@@ -3,7 +3,7 @@ import Hls from 'hls.js';
 import { proxied, resolveMediaUrl, isRemuxUrl } from '../core/net.js';
 import { rememberHeaders, headersFor, applyHeaders, withHeaders } from '../core/reqHeaders.js';
 import { t } from '../core/i18n.js';
-import { redactUrl } from '../core/util.js';
+import { redactUrl, sanitizeDebug } from '../core/util.js';
 import { toHlsConfig, getTuning } from './tuning.js';
 import {
   setSegBudget,
@@ -291,6 +291,7 @@ export class Player {
     this._prefetched = new Map();
     this._warmTargets = new Map();
     this._warmRefresh = null;
+    this._warmBlockUntil = 0;
     
     this.rate = 1;
     this.engine = null;
@@ -982,10 +983,23 @@ export class Player {
     
     cfg.autoStartLoad = false;
     
+    // Porthole serves index.m3u8 straight from ffmpeg's work dir without
+    // locking, so a reload can read a half-written playlist. Treat parse
+    // errors as transient: keep the last good playlist and retry instead of
+    // letting hls.js escalate to fatal (stopLoad -> blackscreen).
+    cfg.ignorePlaylistParsingErrors = true;
     
     cfg.xhrSetup = (xhr, u) => applyHeaders(xhr, u);
     const hls = new Hls(cfg);
     this.hls = hls;
+    // hls.js silences its logger unless `config.debug` is set, and setting it
+    // truthy also disables hls.js' emit try/catch. Patch the instance logger
+    // instead so parse reasons reach the debug overlay (sanitized, no URLs).
+    try {
+      const forward = (msg) => this._dbg('hls', sanitizeDebug(msg));
+      hls.logger.warn = (...args) => forward(args.map((a) => (a && a.message) || String(a)).join(' '));
+      hls.logger.error = (...args) => forward(args.map((a) => (a && a.message) || String(a)).join(' '));
+    } catch (e) {}
     
     
     
@@ -1040,8 +1054,16 @@ export class Player {
     }
     hls.on(Hls.Events.ERROR, (evt, data) => {
       if (!data || this.hls !== hls) return;
+      const status = this._errorStatus(data);
+      const reason = data.reason ? ' reason=' + sanitizeDebug(data.reason) : '';
       this._dbg(data.fatal ? 'error' : 'warn',
-        String(data.type || '') + '/' + String(data.details || '') + ' http=' + this._errorStatus(data));
+        String(data.type || '') + '/' + String(data.details || '') + ' http=' + status + reason);
+      // 503 = Porthole remux pool full (TS_MAX). Neighbour prefetch is the
+      // main source of extra remuxes, so stop warming for a while.
+      if (data.type === Hls.ErrorTypes.NETWORK_ERROR && status === 503) {
+        this._warmBlockUntil = Date.now() + 60000;
+        this._abortWarm(null);
+      }
       
       if (eng && this.engine === eng &&
           ((data.fatal && data.type === Hls.ErrorTypes.MEDIA_ERROR) || /codec/i.test(data.details || ''))) {
@@ -1466,6 +1488,7 @@ export class Player {
 
   
   _warmEnabled() {
+    if (Date.now() < this._warmBlockUntil) return false;
     return this._warmTuning.prefetchSegmentBytes > 0 && getTuning().prefetchSegmentBytes > 0;
   }
 

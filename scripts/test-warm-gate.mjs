@@ -1176,15 +1176,15 @@ test('main registers neighbours by zap direction only and keeps no serial callba
   });
   vm.runInContext(source.slice(start, end), context);
   context.schedulePrefetch();
-  assert.deepEqual(calls, ['2', '0']);
+  assert.deepEqual(calls, ['2']);
   player.current = {};
   first.resolve();
   await flush();
-  assert.deepEqual(calls, ['2', '0']);
+  assert.deepEqual(calls, ['2']);
   calls.length = 0;
   context.lastZapDir = -1;
   context.schedulePrefetch();
-  assert.deepEqual(calls, ['0', '2']);
+  assert.deepEqual(calls, ['0']);
 });
 
 test('main fav zapping loops favourites and passes zapMode to playLive', async () => {
