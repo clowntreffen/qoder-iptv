@@ -63,7 +63,12 @@ function check(name, ok, detail) {
 let browser = null;
 try {
   // 1. stream must exist and be reachable
-  const streamUp = await waitFor(() => httpOk(`http://127.0.0.1:${STREAM_PORT}/live.m3u8`), 2000, 'stream');
+  let streamUp = true;
+  try {
+    await waitFor(() => httpOk(`http://127.0.0.1:${STREAM_PORT}/live.m3u8`), 2000, 'stream');
+  } catch {
+    streamUp = false;
+  }
   if (!streamUp) {
     let server = null;
     if (existsSync(ROOT + '/test/streams/output/live.m3u8')) {

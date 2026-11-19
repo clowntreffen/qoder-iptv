@@ -2,6 +2,11 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.76
+- **Auto decoder recovery for silent black screens.** Some sources buffer fragments but never render a frame because the webOS decoder rejects the stream; neither hls.js nor the video element reports an error, so the picture stays black. In Auto mode the player now detects "fragment loaded + no playhead progress for 7s" and retries once through the native pipeline. On TVs whose native pipeline tolerates the stream, playback resumes automatically.
+- **Fatal hls.js media errors now try native once.** A fatal `bufferAppendError` / `bufferStalledError` / `bufferSeekOverHole` (the shape `MEDIA_ERR_DECODE` takes) switches to the native pipeline immediately instead of only after the 8-retry limit. A native fallback may still switch back to hls.js once if it cannot start either; the primary native path stays one-shot.
+- Smoke test fix: the local-stream fallback branch was unreachable because the wait helper always threw; it now actually starts the static stream server when `:8080` is down.
+
 ## 1.1.75
 - Transient HLS playlist parse errors no longer kill playback. A manifest read while the server rewrites it (half-written playlist) is now retried instead of escalating to a fatal stop; the parse reason is shown in the debug overlay with URLs stripped.
 - Neighbour prefetch now warms only the direction you are actually zapping (one channel instead of two) and pauses for 60s after an HTTP 503. The server's small remux pool is no longer filled by background warming, so the live channel keeps its slot and stops stalling with 503s.

@@ -975,3 +975,70 @@ test('watchdog must not flag paused ready media as bad; no data still errors', a
   assert.equal(attempts, 1);
   assert.equal(context.zapStarting, false);
 });
+
+test('silent hls blackscreen after loaded fragment falls back to native once', (t) => {
+  const tick = clock(t);
+  const { player, video } = fixture(t);
+  video.canPlayType = () => 'maybe';
+  video.readyState = 1; // TV reports no decodable frame, so no edge nudge
+  player._proxiedUrl = player.current.url;
+  player._rawUrl = player.current.url;
+  player._fragMarks = 1;
+  const states = [];
+  player.onStateChange = state => states.push(state);
+  player._watchStartup();
+  tick(6900);
+  assert.equal(player.activePath(), 'hls');
+  assert.deepEqual(states, []);
+  tick(200);
+  assert.equal(player.activePath(), 'native');
+  assert.deepEqual(states, ['nativefallback']);
+  assert.equal(player._phase.fallback, 'black');
+  assert.notEqual(player._startupTimer, null, 'native watchdog restarts');
+  tick(20000);
+  assert.equal(player.activePath(), 'native');
+  assert.deepEqual(states, ['nativefallback'], 'no repeated fallback');
+});
+
+test('silent blackscreen watchdog waits for a loaded fragment', (t) => {
+  const tick = clock(t);
+  const { player, video } = fixture(t);
+  video.canPlayType = () => 'maybe';
+  player._proxiedUrl = player.current.url;
+  player._rawUrl = player.current.url;
+  player._fragMarks = 0;
+  const states = [];
+  player.onStateChange = state => states.push(state);
+  player._watchStartup();
+  tick(30000);
+  assert.equal(player.activePath(), 'hls');
+  assert.deepEqual(states, []);
+});
+
+test('fatal hls.js bufferAppendError falls back to native once', (t) => {
+  clock(t);
+  const { player, video } = fixture(t);
+  video.canPlayType = () => 'maybe';
+  for (const name of ['self', 'window']) {
+    const old = Object.getOwnPropertyDescriptor(globalThis, name);
+    Object.defineProperty(globalThis, name, { configurable: true, value: globalThis });
+    t.after(() => old ? Object.defineProperty(globalThis, name, old) : delete globalThis[name]);
+  }
+  t.mock.method(Hls, 'isSupported', () => true);
+  t.mock.method(Hls.prototype, 'attachMedia', () => {});
+  t.mock.method(Hls.prototype, 'loadSource', () => {});
+  const originalOn = Hls.prototype.on;
+  let errorHandler;
+  t.mock.method(Hls.prototype, 'on', function(event, callback, context) {
+    if (event === Hls.Events.ERROR && context === undefined) errorHandler = callback;
+    return originalOn.call(this, event, callback, context);
+  });
+  const states = [];
+  player.onStateChange = state => states.push(state);
+  player._destroyHls();
+  player.playLive({ name: 'HLS', url: 'https://example.test/live.m3u8' }, 'hls');
+  errorHandler(null, { fatal: true, type: Hls.ErrorTypes.MEDIA_ERROR, details: 'bufferAppendError' });
+  assert.equal(player.activePath(), 'native');
+  assert.deepEqual(states, ['nativefallback']);
+  assert.equal(player._phase.fallback, 'media');
+});

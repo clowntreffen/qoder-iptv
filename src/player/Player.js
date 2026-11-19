@@ -61,7 +61,11 @@ const CFG = {
     minBuffer: 2,
     boundaryTolerance: 0.05,
     nudge: 0.05,
-    motion: 0.1
+    motion: 0.1,
+    // hls.js can buffer fragments and still never render a frame (webOS
+    // decoders reject the source, no video.error, no fatal hls.js event).
+    // After this long without playhead progress, try the native pipeline.
+    blackMs: 7000
   },
   warmSafety: {
     segmentFactor: 1.5, 
@@ -282,6 +286,7 @@ export class Player {
     this._nativeFails = 0;
     this._nativeOff = false;
     this._playedOnce = false;
+    this._fragMarks = 0; // main fragments loaded since _load (silent-blackscreen watchdog)
     this._warmPlaying = false;
     this._warmGeneration = 0; 
     this._fragDuration = 0;
@@ -459,8 +464,20 @@ export class Player {
     }
     const ahead = this._bufferAhead();
     state.reason = seeking ? 'seeking' : ahead < cfg.minBuffer ? 'buffer' : 'ready';
-    
-    
+
+    // Silent blackscreen: fragments arrive, but the playhead never moves and
+    // neither hls.js nor the video element reports an error. Some webOS
+    // decoders drop such sources without firing video.error, so wait once
+    // after the first fragment and retry through the native pipeline.
+    if (!native && this.mode === 'live' && !state.blackAt && this._fragMarks > 0 &&
+        now - state.stillAt >= cfg.blackMs && this._canNativeHls()) {
+      state.blackAt = now;
+      state.done = true;
+      this._clearStartup();
+      this._fallbackToNative('black');
+      return;
+    }
+
     if (native || this.mode !== 'live' || v.paused || seeking || v.readyState !== 2 ||
         ahead < cfg.minBuffer || state.attempted || now - state.stillAt < cfg.stallMs) return;
     const target = pos + cfg.nudge;
@@ -876,6 +893,7 @@ export class Player {
     this._triedNativeFallback = false;
     this._netRetries = 0;
     this._mediaRetries = 0;
+    this._fragMarks = 0;
     clearTimeout(this._netRetryTimer);
     this._netRetryTimer = null;
     this._loadedBytes = 0;
@@ -1095,6 +1113,12 @@ export class Player {
             }
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
+            // Decoder rejected the remuxed source (MEDIA_ERR_DECODE surfaces as
+            // a fatal append/stall error). hls.js cannot fix the bitstream;
+            // the native pipeline on webOS tolerates it, so try that once.
+            if (/bufferAppendError|bufferStalledError|bufferSeekOverHole|bufferHole|decode/i.test(data.details || '')) {
+              if (this._canNativeHls() && this._fallbackToNative('media')) return;
+            }
             if (++this._mediaRetries > CFG.maxErrorRetries) {
               fail(t('perr.decodeFailed'));
             } else {
@@ -1111,6 +1135,7 @@ export class Player {
       if (this.hls !== hls) return;
       if (data && data.frag && data.frag.type === 'main' && Number.isFinite(data.frag.sn)) {
         this._mark('frag');
+        this._fragMarks++;
         this._dbg('frag', '#' + data.frag.sn + ' ok');
       }
       const st = data && (data.stats || (data.frag && data.frag.stats));
@@ -1379,9 +1404,12 @@ export class Player {
   }
 
   _nativeStartupFailed() {
+    // A native attempt that was itself a fallback from hls.js may switch back
+    // once; a native attempt that was the primary path stays one-shot.
+    const fromFallback = !!(this._phase && this._phase.fallback === 'black');
     if (this.mode !== 'live' || this._activePath !== 'native' || this._decoder !== 'auto' ||
-        this._playedOnce || this._triedNativeFallback || !isHlsUrl(this._rawUrl || '') ||
-        !Hls.isSupported()) return false;
+        this._playedOnce || (this._triedNativeFallback && !fromFallback) ||
+        !isHlsUrl(this._rawUrl || '') || !Hls.isSupported()) return false;
     
     this._triedNativeFallback = true;
     if (this._nativeUrls) this._nativeUrls.delete(this._rawUrl);
