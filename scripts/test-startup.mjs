@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import Hls from 'hls.js';
 import { Player, isHlsUrl } from '../src/player/Player.js';
+import { clearHeaders, rememberHeaders } from '../src/core/reqHeaders.js';
 import { NetSpeed } from '../src/ui/NetSpeed.js';
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
@@ -1041,4 +1042,115 @@ test('fatal hls.js bufferAppendError falls back to native once', (t) => {
   assert.equal(player.activePath(), 'native');
   assert.deepEqual(states, ['nativefallback']);
   assert.equal(player._phase.fallback, 'media');
+});
+
+test('auto live headerless HLS opens native first', (t) => {
+  const { player, video } = nativeAutoFixture(t);
+  video.canPlayType = () => 'probably';
+  player.prewarm = () => {};
+  player.playLive({ name: 'Fast', url: 'https://example.test/fast.m3u8' }, 'auto');
+  assert.equal(player.activePath(), 'native');
+  assert.equal(player.hls, null);
+  assert.equal(player._decoder, 'auto');
+  assert.equal(player._nativeFirst, true);
+  assert.equal(player._preferNativeAuto('https://example.test/fast.m3u8'), true);
+  assert.equal(player._willUseNative('https://example.test/fast.m3u8'), true);
+});
+
+test('auto live HLS with headers stays on hls.js', (t) => {
+  const { player, video } = nativeAutoFixture(t);
+  t.after(() => clearHeaders());
+  video.canPlayType = () => 'probably';
+  player.prewarm = () => {};
+  const url = 'https://headers.example.test/live.m3u8';
+  rememberHeaders(url, { Referer: 'https://tv.test/' });
+  player.playLive({ name: 'Hdr', url }, 'auto');
+  assert.equal(player.activePath(), 'hls');
+  assert.ok(player.hls);
+  assert.equal(player._nativeFirst, false);
+  assert.equal(player._preferNativeAuto(url), false);
+  assert.equal(player._willUseNative(url), false);
+});
+
+test('explicit hls decoder keeps headerless live HLS on hls.js', (t) => {
+  const { player, video } = nativeAutoFixture(t);
+  video.canPlayType = () => 'probably';
+  player.prewarm = () => {};
+  player.playLive({ name: 'Explicit', url: 'https://example.test/explicit.m3u8' }, 'hls');
+  assert.equal(player.activePath(), 'hls');
+  assert.ok(player.hls);
+  assert.equal(player._nativeFirst, false);
+});
+
+test('catch-up auto stays on hls.js even without headers', (t) => {
+  const { player } = nativeAutoFixture(t);
+  player.prewarm = () => {};
+  player.playCatchup(
+    { name: 'Catch', url: 'https://example.test/catch.m3u8' },
+    { title: 'P', start: 1000, stop: 2000 },
+    'https://example.test/catch.m3u8',
+    'auto'
+  );
+  assert.equal(player.mode, 'catchup');
+  assert.equal(player.activePath(), 'hls');
+  assert.equal(player._nativeFirst, false);
+});
+
+test('native-first no-frame watchdog falls back to hls.js once', (t) => {
+  const tick = clock(t);
+  const { player, video } = nativeAutoFixture(t);
+  const states = [];
+  player.onStateChange = state => states.push(state);
+  player._nativeFirst = true;
+  video.readyState = 2;
+  video.currentTime = 10;
+  video.paused = false;
+  player._proxiedUrl = player._rawUrl;
+  player._watchStartup();
+  tick(4800);
+  assert.equal(player.activePath(), 'native');
+  assert.deepEqual(states, []);
+  tick(200);
+  assert.equal(player.activePath(), 'hls');
+  assert.ok(player.hls);
+  assert.deepEqual(states, ['hlsfallback']);
+  assert.equal(player._triedHlsFallback, true);
+  assert.equal(player._startupTimer, null);
+  assert.equal(player._fallbackToHls('media'), false, 'one reverse attempt only');
+  assert.equal(player._fallbackToNative('codec'), false, 'must not bounce back to native');
+});
+
+test('native-first watchdog keeps playing when a frame was rendered', (t) => {
+  const tick = clock(t);
+  const { player, video } = nativeAutoFixture(t);
+  player._nativeFirst = true;
+  let frame;
+  video.requestVideoFrameCallback = fn => { frame = fn; return 1; };
+  video.cancelVideoFrameCallback = () => {};
+  video.readyState = 2;
+  video.currentTime = 10;
+  video.paused = false;
+  player._proxiedUrl = player._rawUrl;
+  player._watchStartup();
+  frame();
+  tick(8000);
+  assert.equal(player.activePath(), 'native');
+  assert.notEqual(player._phase.frame, undefined);
+});
+
+test('native-first startup error reverses to hls.js', (t) => {
+  clock(t);
+  const { player, video } = nativeAutoFixture(t);
+  const states = [];
+  player.onStateChange = state => states.push(state);
+  player._nativeFirst = true;
+  player._proxiedUrl = player._rawUrl;
+  player._watchStartup();
+  video.error = { code: 3 };
+  video.emit('error');
+  assert.equal(player.activePath(), 'hls');
+  assert.ok(player.hls);
+  assert.equal(video.error, null);
+  assert.equal(player._triedHlsFallback, true);
+  assert.deepEqual(states, ['hlsfallback']);
 });

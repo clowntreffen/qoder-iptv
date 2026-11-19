@@ -65,7 +65,10 @@ const CFG = {
     // hls.js can buffer fragments and still never render a frame (webOS
     // decoders reject the source, no video.error, no fatal hls.js event).
     // After this long without playhead progress, try the native pipeline.
-    blackMs: 7000
+    blackMs: 7000,
+    // Auto mode opens live HLS through the native pipeline first. If it has
+    // media data but renders no frame for this long, retry once via hls.js.
+    nativeBlackMs: 5000
   },
   warmSafety: {
     segmentFactor: 1.5, 
@@ -285,6 +288,10 @@ export class Player {
     this._nativeBad = new Set();
     this._nativeFails = 0;
     this._nativeOff = false;
+    // Auto mode opens headerless live HLS through the native pipeline first;
+    // `_triedHlsFallback` prevents a later fatal hls.js error from bouncing back.
+    this._nativeFirst = false;
+    this._triedHlsFallback = false;
     this._playedOnce = false;
     this._fragMarks = 0; // main fragments loaded since _load (silent-blackscreen watchdog)
     this._warmPlaying = false;
@@ -447,6 +454,20 @@ export class Player {
         this._playedOnce = true;
         if (this.onStateChange) this.onStateChange('startupmoving');
       }
+      return;
+    }
+    // Native-first silent blackscreen: media data is present but the decoder
+    // renders no frame (audio can keep currentTime moving, so motion alone is
+    // not enough). Retry once through hls.js.
+    if (native && this._nativeFirst && this.mode === 'live' && !v.paused &&
+        v.readyState >= 2 && !phase.frame &&
+        now - (phase.data || state.at) >= cfg.nativeBlackMs) {
+      state.done = true;
+      state.reason = 'black';
+      this._clearStartup();
+      if (this._fallbackToHls('media')) return;
+      state.failed = true;
+      if (this.onError) this.onError(t('toast.channelUnavailable'));
       return;
     }
     if (native && v.paused && v.readyState >= 2) state.pausedMs += elapsed * 1000;
@@ -891,6 +912,8 @@ export class Player {
     
     rememberHeaders(rawUrl, this.current && this.current.channel && this.current.channel.headers);
     this._triedNativeFallback = false;
+    this._triedHlsFallback = false;
+    this._nativeFirst = false;
     this._netRetries = 0;
     this._mediaRetries = 0;
     this._fragMarks = 0;
@@ -903,8 +926,11 @@ export class Player {
     const nativeBlocked = !this._nativeAllowed(rawUrl);
     
     
-    const preferNative =
-      !nativeBlocked && decoder === 'auto' && this._canNativeHls() && this._looksHevc(rawUrl);
+    // Headerless live HLS opens through the native pipeline first: no JS
+    // manifest parse/transmux step, so warm channels appear faster. Channels
+    // needing custom headers stay on hls.js because `<video>` cannot send them.
+    const preferNative = this._preferNativeAuto(rawUrl);
+    this._nativeFirst = !!preferNative;
     const useHlsJs = isHls && Hls.isSupported() &&
       (decoder !== 'native' || nativeBlocked) && !preferNative;
     
@@ -1404,25 +1430,35 @@ export class Player {
   }
 
   _nativeStartupFailed() {
-    // A native attempt that was itself a fallback from hls.js may switch back
-    // once; a native attempt that was the primary path stays one-shot.
-    const fromFallback = !!(this._phase && this._phase.fallback === 'black');
+    // Auto live HLS tries native first and may retry once via hls.js. A native
+    // attempt that was itself an hls.js fallback may also switch back once.
+    // Explicit native stays one-shot.
+    const fromBlackFallback = !!(this._phase && this._phase.fallback === 'black');
+    const mayReverse = this._nativeFirst || !this._triedNativeFallback || fromBlackFallback;
     if (this.mode !== 'live' || this._activePath !== 'native' || this._decoder !== 'auto' ||
-        this._playedOnce || (this._triedNativeFallback && !fromFallback) ||
+        this._playedOnce || !mayReverse ||
         !isHlsUrl(this._rawUrl || '') || !Hls.isSupported()) return false;
     
     this._triedNativeFallback = true;
+    return this._fallbackToHls('media');
+  }
+
+  _fallbackToHls(reason = 'media') {
+    if (this._triedHlsFallback || !this._proxiedUrl) return false;
+    if (!isHlsUrl(this._rawUrl || '') || !Hls.isSupported()) return false;
+    this._triedHlsFallback = true;
     if (this._nativeUrls) this._nativeUrls.delete(this._rawUrl);
     this._abortWarm(null);
     this._destroyHls();
-    this._phase = { t0: Date.now() };
+    this._startup = null;
+    this._phase = { t0: Date.now(), fallback: reason };
     this._playedOnce = false;
     this._activePath = 'hls';
     this._resetMediaInfo();
     this.video.removeAttribute('src');
     this.video.load();
     if (this.onStateChange) this.onStateChange('hlsfallback');
-    this._createHls(this._proxiedUrl || this._rawUrl);
+    this._createHls(this._proxiedUrl);
     return true;
   }
 
@@ -1430,7 +1466,10 @@ export class Player {
   
   _fallbackToNative(reason = 'media') {
     if (this._triedNativeFallback || !this._proxiedUrl) return false;
-    if (!this._nativeAllowed()) return false; 
+    if (!this._nativeAllowed()) return false;
+    // Native was already the primary pipeline for this load; a later fatal
+    // hls.js error must not bounce back to it.
+    if (this._nativeFirst && this._triedHlsFallback) return false;
     this._abortWarm(null);
     this._triedNativeFallback = true;
     if (this._rawUrl) {
@@ -1446,10 +1485,17 @@ export class Player {
   
   
   
+  _preferNativeAuto(rawUrl) {
+    if (this._decoder !== 'auto' || this.mode !== 'live') return false;
+    if (!isHlsUrl(rawUrl) || headersFor(rawUrl)) return false;
+    return this._canNativeHls() && this._nativeAllowed(rawUrl);
+  }
+
   _willUseNative(rawUrl) {
     if (!this._nativeAllowed(rawUrl)) return false;
     if (this._decoder === 'native') return true;
-    return !!(this._nativeUrls && this._nativeUrls.has(rawUrl));
+    if (this._nativeUrls && this._nativeUrls.has(rawUrl)) return true;
+    return this._preferNativeAuto(rawUrl);
   }
 
   
@@ -1460,7 +1506,8 @@ export class Player {
   _looksHevc(rawUrl) {
     if (!this._nativeAllowed(rawUrl)) return false; 
     if (this._nativeUrls && this._nativeUrls.has(rawUrl)) return true;
-    if (this._mseHevcOk()) return false; 
+    if (this._preferNativeAuto(rawUrl)) return true;
+    if (this._mseHevcOk()) return false;
     const name = (this.current && this.current.channel && this.current.channel.name) || '';
     return /4k|8k|2160|uhd|hevc|h\.?265/i.test(name + ' ' + rawUrl);
   }

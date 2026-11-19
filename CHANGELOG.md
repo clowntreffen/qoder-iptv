@@ -2,6 +2,10 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.77
+- **Faster channel start in Auto mode.** Headerless live HLS now opens through the TV's native pipeline first instead of parsing/transmuxing through hls.js. Warm channels appear sooner and the native decoder tolerates some streams Chromium-MSE rejects. Channels that need custom request headers and all catch-up/VOD playback stay on hls.js.
+- **Native-first recovery.** If the native pipeline has media data but renders no frame for 5s, or fails before the first frame, it retries once through hls.js. The reverse direction is guarded so a failing stream cannot bounce between decoders.
+
 ## 1.1.76
 - **Auto decoder recovery for silent black screens.** Some sources buffer fragments but never render a frame because the webOS decoder rejects the stream; neither hls.js nor the video element reports an error, so the picture stays black. In Auto mode the player now detects "fragment loaded + no playhead progress for 7s" and retries once through the native pipeline. On TVs whose native pipeline tolerates the stream, playback resumes automatically.
 - **Fatal hls.js media errors now try native once.** A fatal `bufferAppendError` / `bufferStalledError` / `bufferSeekOverHole` (the shape `MEDIA_ERR_DECODE` takes) switches to the native pipeline immediately instead of only after the 8-retry limit. A native fallback may still switch back to hls.js once if it cannot start either; the primary native path stays one-shot.
