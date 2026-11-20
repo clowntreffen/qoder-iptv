@@ -69,7 +69,7 @@ const CFG = {
     blackMs: 7000,
     // Auto mode opens live HLS through the native pipeline first. If it has
     // media data but renders no frame for this long, retry once via hls.js.
-    nativeBlackMs: 5000
+    nativeBlackMs: 2500
   },
   warmSafety: {
     segmentFactor: 1.5, 
@@ -172,7 +172,7 @@ const WARM_JOB_TTL = 40000;
 
 
 const WARM_LOAD_TIMEOUT = 35000;
-const WARM_MANIFEST_TIMEOUT = 4000;
+const WARM_MANIFEST_TIMEOUT = 10000;
 
 //
 // Cold remux manifests answer immediately, but the first segment can take

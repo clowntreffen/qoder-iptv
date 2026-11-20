@@ -1107,7 +1107,7 @@ test('native-first no-frame watchdog falls back to hls.js once', (t) => {
   video.paused = false;
   player._proxiedUrl = player._rawUrl;
   player._watchStartup();
-  tick(4800);
+  tick(2300);
   assert.equal(player.activePath(), 'native');
   assert.deepEqual(states, []);
   tick(200);
