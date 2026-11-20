@@ -2,7 +2,7 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
-## 1.1.79
+## 1.1.80\n- **Direct fast path for compatible channels.** Playlists now prefer `/fmaster` (instant, no remux cold start) for H.264/AAC channels with regular keyframes; remux (`/ts`) only when normalization is needed.\n- **isHlsUrl recognizes `/fmaster` URLs** so the native pipeline handles them.\n\n## 1.1.79
 - **Tolerate slow remux cold starts.** Porthole remuxes can take ~10 s to spin up; hls.js now waits up to 30 s for the media playlist and retries level loads instead of failing at 3 s.
 
 ## 1.1.78

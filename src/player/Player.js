@@ -32,6 +32,7 @@ import { pickSavedTrack } from '../core/channelTracks.js';
 // .m3u8 both need hls.js; the path alone is not enough for proxied playlists.
 export function isHlsUrl(raw) {
   return /\.m3u8(\?|$)/i.test(raw) ||
+    /\/fmaster\//i.test(raw) ||
     /[?&](?:url|u)=[^&]*\.m3u8(?:[?&#]|$)/i.test(raw);
 }
 
