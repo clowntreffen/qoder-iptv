@@ -2,6 +2,9 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.79
+- **Tolerate slow remux cold starts.** Porthole remuxes can take ~10 s to spin up; hls.js now waits up to 30 s for the media playlist and retries level loads instead of failing at 3 s.
+
 ## 1.1.78
 - **Sources stay fresh.** The active playlist is now reloaded every 15 minutes instead of every 6 hours, and also whenever the app becomes visible or focused again. A new Settings button **Refresh Sources** forces an immediate reload.
 

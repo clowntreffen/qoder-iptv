@@ -1020,8 +1020,13 @@ export class Player {
     // user's tuning values.
     if (isRemuxUrl(this._rawUrl || url)) {
       cfg.manifestLoadingTimeOut = Math.max(cfg.manifestLoadingTimeOut || 0, REMUX_MANIFEST_TIMEOUT_MS);
+      cfg.levelLoadingTimeOut = Math.max(cfg.levelLoadingTimeOut || 0, REMUX_MANIFEST_TIMEOUT_MS);
       cfg.fragLoadingTimeOut = Math.max(cfg.fragLoadingTimeOut || 0, REMUX_FRAG_TIMEOUT_MS);
+      cfg.manifestLoadingMaxRetry = Math.max(cfg.manifestLoadingMaxRetry || 0, REMUX_FRAG_MAX_RETRY);
+      cfg.levelLoadingMaxRetry = Math.max(cfg.levelLoadingMaxRetry || 0, REMUX_FRAG_MAX_RETRY);
       cfg.fragLoadingMaxRetry = Math.max(cfg.fragLoadingMaxRetry || 0, REMUX_FRAG_MAX_RETRY);
+      cfg.manifestLoadingRetryDelay = Math.max(cfg.manifestLoadingRetryDelay || 0, REMUX_FRAG_RETRY_DELAY_MS);
+      cfg.levelLoadingRetryDelay = Math.max(cfg.levelLoadingRetryDelay || 0, REMUX_FRAG_RETRY_DELAY_MS);
       cfg.fragLoadingRetryDelay = Math.max(cfg.fragLoadingRetryDelay || 0, REMUX_FRAG_RETRY_DELAY_MS);
     }
     
