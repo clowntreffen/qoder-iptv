@@ -2,6 +2,9 @@
 
 Based on [HCLGitHub/qoder-iptv](https://github.com/HCLGitHub/qoder-iptv) (MIT).
 
+## 1.1.78
+- **Sources stay fresh.** The active playlist is now reloaded every 15 minutes instead of every 6 hours, and also whenever the app becomes visible or focused again. A new Settings button **Refresh Sources** forces an immediate reload.
+
 ## 1.1.77
 - **Faster channel start in Auto mode.** Headerless live HLS now opens through the TV's native pipeline first instead of parsing/transmuxing through hls.js. Warm channels appear sooner and the native decoder tolerates some streams Chromium-MSE rejects. Channels that need custom request headers and all catch-up/VOD playback stay on hls.js.
 - **Native-first recovery.** If the native pipeline has media data but renders no frame for 5s, or fails before the first frame, it retries once through hls.js. The reverse direction is guarded so a failing stream cannot bounce between decoders.

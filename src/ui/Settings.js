@@ -79,6 +79,7 @@ export class Settings {
       { key: 'subtitles', type: 'select', label: t('settings.subtitles'), value: tracks.subtitles || t('label.off') },
       { key: 'sleep', type: 'select', label: t('settings.sleep'), value: sleepLabel(this.s.sleepMinutes) },
       { key: 'autoRefresh', type: 'select', label: t('settings.autoRefresh'), value: this.s.autoRefresh ? t('label.on') : t('label.off') },
+      { key: 'refreshSources', type: 'button', label: t('settings.refreshSources') },
       { key: 'refreshEpg', type: 'button', label: t('settings.refreshEpg') },
       { key: 'clearEpg', type: 'button', label: t('settings.clearEpg') },
       { key: 'groups', type: 'button', label: t('settings.groupManager') },
@@ -189,6 +190,9 @@ export class Settings {
     const row = this._rows()[this.focusIdx];
     if (!row) return;
     switch (row.key) {
+      case 'refreshSources':
+        if (this.onRefreshSources) this.onRefreshSources();
+        break;
       case 'refreshEpg':
         if (this.onRefreshEpg) this.onRefreshEpg();
         break;

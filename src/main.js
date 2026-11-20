@@ -942,13 +942,23 @@ function setSleepTimer(minutes) {
 
 let m3uRefreshTimer = null;
 let epgRefreshTimer = null;
-const M3U_REFRESH_MS = 6 * 3600 * 1000;
+const M3U_REFRESH_MS = 15 * 60 * 1000;
 const EPG_REFRESH_MS = 2 * 3600 * 1000;
+let lastM3uRefresh = 0;
 
 function refreshPlaylistSilently() {
   if (!app.source || document.hidden) return;
+  lastM3uRefresh = Date.now();
   loadSource(app.source, { silent: true });
 }
+
+function refreshPlaylistOnReturn() {
+  if (document.hidden || !app.source) return;
+  if (Date.now() - lastM3uRefresh < 60000) return;
+  refreshPlaylistSilently();
+}
+document.addEventListener('visibilitychange', refreshPlaylistOnReturn);
+window.addEventListener('focus', refreshPlaylistOnReturn);
 
 function refreshEpgSilently() {
   if (!app.source || document.hidden) return;
@@ -1078,6 +1088,13 @@ settings.onSetPin = changePin;
 settings.onClearPin = clearPin;
 settings.onBackup = () => openBackup('backup');
 settings.onRestore = () => openBackup('restore');
+settings.onRefreshSources = () => {
+  if (!app.source) { toast(t('toast.noChannels')); return; }
+  toast(t('toast.refreshingSources'));
+  Promise.resolve(loadSource(app.source, { silent: true })).then(() => {
+    toast(t('toast.sourcesUpdated'));
+  });
+};
 settings.onRefreshEpg = () => {
   const url = (app.source && app.source.epgUrl) || epgStore.url;
   if (!url) { toast(t('toast.noEpgUrl')); return; }
